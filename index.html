@@ -316,10 +316,17 @@
         .key-count { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; font-weight: 500; }
 
         /* Dragging Visuals - High Contrast & Mobile Proxy */
+        /* RESTORED DESKTOP DRAG STYLE */
         .dragging { 
-            opacity: 0.5; /* Origin visual state */
+            opacity: 1 !important; 
+            border: 2px solid #fbbf24 !important;
+            background: #000 !important;
+            color: #fbbf24 !important;
+            box-shadow: 0 0 15px #fbbf24;
+            z-index: 100;
         }
         
+        /* Mobile Touch Proxy */
         .drag-proxy {
             position: fixed;
             pointer-events: none;
@@ -637,6 +644,7 @@
                 cvs.addEventListener('dragover', e => e.preventDefault());
                 cvs.addEventListener('drop', e => this.onDrop(e));
                 
+                // Add Service Worker logic here if desired
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.register('sw.js')
                         .catch(err => console.log('SW registration failed:', err));
@@ -656,7 +664,6 @@
 
             fitCamera() {
                 const isMobile = window.innerWidth < 600;
-                // Distances adjusted to ensure full grid visibility in both 2D and 3D
                 let dist = this.isMenuMode ? (isMobile ? 24 : 18) : (isMobile ? 28 : 18); 
                 let y = this.isMenuMode ? 10 : 14;
 
@@ -665,12 +672,12 @@
                     this.camera.lookAt(0, 0, 0);
                 } else {
                     if (this.is2D) {
-                        // 2D View
                         const zoom2D = isMobile ? 26 : 22; 
-                        this.camera.position.set(0, zoom2D, 0);
-                        this.camera.lookAt(0, 0, 0); 
+                        // Center by using 0 offset for Desktop
+                        const zOffset = isMobile ? 0 : 0; 
+                        this.camera.position.lerp(new THREE.Vector3(0, zoom2D, zOffset), 0.05);
+                        this.camera.lookAt(0, 0, zOffset); 
                     } else {
-                        // 3D Perspective view
                         this.camera.position.set(0, 16, dist); 
                         this.camera.lookAt(0, -3, 0); 
                     }
@@ -813,11 +820,9 @@
                     const dy = e.clientY - this.prevMouse.y;
                     if(Math.abs(dx) > 2 || Math.abs(dy) > 2) this.wasDrag = true;
                     
-                    // Allow rotation in 2D mode now (Turnable)
                     if (this.is2D) {
                         this.rotY += dx * 0.005;
                     } else {
-                        // 3D Mode
                         this.rotY += dx * 0.005;
                         this.rotX += dy * 0.005;
                         this.rotX = Math.max(0.2, Math.min(1.0, this.rotX)); 
@@ -850,21 +855,18 @@
                     this.camera.lookAt(0,0,0);
                 } else {
                     if (this.is2D) {
-                        // 2D Logic: Lerp to Flat X rotation (0), Allow Y rotation (Spin)
                         this.boardGroup.rotation.x += (0 - this.boardGroup.rotation.x) * 0.1;
                         this.boardGroup.rotation.y += (this.rotY - this.boardGroup.rotation.y) * 0.1;
                         
-                        // Camera overhead
                         const isMobile = window.innerWidth < 600;
-                        const zoom2D = isMobile ? 26 : 22; 
-                        this.camera.position.lerp(new THREE.Vector3(0, zoom2D, 0), 0.05);
-                        this.camera.lookAt(0, 0, 0); 
+                        const zoom2D = isMobile ? 26 : 24; 
+                        const zOffset = isMobile ? 0 : 0; 
+                        this.camera.position.lerp(new THREE.Vector3(0, zoom2D, zOffset), 0.05);
+                        this.camera.lookAt(0, 0, zOffset); 
                     } else {
-                        // 3D perspective handling
                         this.boardGroup.rotation.y += (this.rotY - this.boardGroup.rotation.y) * 0.1;
                         this.boardGroup.rotation.x += (this.rotX - this.boardGroup.rotation.x) * 0.1;
                         
-                        // Camera stays at fitted position
                         const isMobile = window.innerWidth < 600;
                         const dist = isMobile ? 28 : 18; 
                         const targetPos = new THREE.Vector3(0, 16, dist);
@@ -956,7 +958,6 @@
         let touchStartY = 0;
 
         function initTouchDrag() {
-            // Re-attach touch events to current keys
             const keys = document.querySelectorAll('.num-key');
             keys.forEach(key => {
                 key.addEventListener('touchstart', onTouchStart, {passive: false});
@@ -965,9 +966,6 @@
 
         function onTouchStart(e) {
             if(e.touches.length > 1) return;
-            // Only prevent default if we intend to drag, but we also want taps
-            // We'll prevent default on move if it's a drag
-            
             const touch = e.touches[0];
             const num = parseInt(this.innerText);
             if(isNaN(num)) return;
@@ -978,7 +976,6 @@
             
             this.classList.add('dragging');
             
-            // Attach move/end to window to track dragging outside the element
             window.addEventListener('touchmove', onTouchMove, {passive: false});
             window.addEventListener('touchend', onTouchEnd);
         }
@@ -990,14 +987,12 @@
             const dx = touch.clientX - touchStartX;
             const dy = touch.clientY - touchStartY;
             
-            // If moved significantly, assume drag
             if(Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-                e.preventDefault(); // Prevent scrolling
+                e.preventDefault(); 
                 
                 if(!dragProxy) {
                     dragProxy = document.createElement('div');
                     dragProxy.className = 'drag-proxy';
-                    // Find the number from the dragging element
                     const el = document.querySelector('.num-key.dragging');
                     if(el) dragProxy.innerText = el.innerText.trim();
                     document.body.appendChild(dragProxy);
@@ -1016,12 +1011,10 @@
             const num = el ? parseInt(el.innerText) : 0;
 
             if(dragProxy) {
-                // Was a drag
                 handleTouchDrop(touch.clientX, touch.clientY, num);
                 dragProxy.remove();
                 dragProxy = null;
             } else {
-                // Was a tap
                 handleNumpadClick(num);
             }
 
@@ -1033,7 +1026,6 @@
         }
 
         function handleTouchDrop(cx, cy, num) {
-            // Convert clientX/Y to NDC for Three.js
             const nx = (cx / window.innerWidth) * 2 - 1;
             const ny = - (cy / window.innerHeight) * 2 + 1;
             
