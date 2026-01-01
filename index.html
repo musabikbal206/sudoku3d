@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sudoku 3D Ultimate</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <meta name="theme-color" content="#0f172a">
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- PDF Lib -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- MODERN VARIABLES --- */
+        :root {
+            --bg-deep: #020617;
+            --glass-bg: rgba(15, 23, 42, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.15);
+            --accent-primary: #6366f1; /* Indigo */
+            --accent-secondary: #0ea5e9; /* Sky */
+            --accent-glow: rgba(99, 102, 241, 0.5);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #fbbf24;
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+        
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-deep);
+            color: var(--text-primary);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- LAYOUT LAYERS --- */
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            transition: opacity 0.5s ease;
+            touch-action: none; 
+        }
+
+        #ui-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .pointer-events-auto { pointer-events: auto !important; }
+        .hidden { display: none !important; }
+        
+        /* --- UTILITIES --- */
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+        .flex-col { flex-direction: column; }
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        .btn {
+            cursor: pointer; border: none; outline: none;
+            font-family: inherit; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .btn:active { transform: scale(0.96); }
+
+        /* --- MENUS --- */
+        #menu-view {
+            width: 100%; height: 100%;
+            display: grid;
+            place-items: center;
+            background: rgba(2, 6, 23, 0.3);
+        }
+
+        .menu-container {
+            width: 90%; max-width: 400px;
+            padding: 2.5rem;
+            border-radius: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .menu-container::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px;
+            background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+        }
+
+        .lang-toggle {
+            position: absolute; top: 1rem; right: 1rem;
+            width: 2.5rem; height: 2.5rem;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            color: var(--text-secondary);
+            font-weight: 700; font-size: 0.8rem;
+        }
+        .lang-toggle:hover { background: rgba(255,255,255,0.2); color: white; }
+
+        .game-title {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #fff 30%, var(--accent-primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+        }
+
+        .game-subtitle {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--accent-secondary);
+            margin-bottom: 2.5rem;
+            font-weight: 600;
+        }
+
+        .difficulty-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;
+        }
+
+        .diff-btn {
+            padding: 1rem;
+            border-radius: 1rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .diff-btn.selected {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        .diff-btn:hover:not(.selected) { background: rgba(255,255,255,0.08); }
+
+        .menu-action-btn {
+            width: 100%;
+            padding: 1.25rem;
+            border-radius: 1rem;
+            font-weight: 800;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .menu-action-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.5); }
+
+        /* Specific Button Colors */
+        #btn-new-game {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        
+        #btn-resume {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+        }
+
+        /* Updated Menu Layout */
+        .menu-row {
+            display: flex; gap: 0.75rem; margin-bottom: 0.75rem;
+        }
+        .icon-btn {
+            flex: 1; padding: 1rem;
+            border-radius: 1rem;
+            background: rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+        }
+        .icon-btn i { font-size: 1.2rem; margin-bottom: 2px; }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        .code-input-wrapper {
+            flex: 2; display: flex; gap: 0.5rem;
+            background: rgba(0,0,0,0.6);
+            padding: 0.5rem; border-radius: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .code-input {
+            width: 100%; background: transparent; border: none; outline: none;
+            color: white; font-weight: 800; text-align: center; text-transform: uppercase;
+            font-size: 1.25rem; letter-spacing: 2px;
+        }
+        .code-input::placeholder { color: rgba(255,255,255,0.3); }
+        
+        .dice-btn {
+            width: 2.5rem; height: 2.5rem; border-radius: 0.75rem;
+            background: rgba(255,255,255,0.1); color: var(--accent-secondary);
+            flex-shrink: 0;
+        }
+
+        /* --- GAME HUD --- */
+        #game-view {
+            height: 100%; display: flex; flex-direction: column; justify-content: space-between;
+            padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)) 1rem;
+        }
+
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; max-width: 800px; margin: 0 auto;
+        }
+
+        /* Mobile Optimization for Top Bar */
+        @media (max-width: 600px) {
+            .top-bar {
+                gap: 0.5rem;
+            }
+            .diff-label {
+                display: none; /* Hide Difficulty Text on small screens to save space */
+            }
+            .hud-pill {
+                padding: 0 0.75rem;
+                font-size: 0.75rem;
+            }
+            .glass-panel {
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+            }
+        }
+
+        .hud-pill {
+            height: 2.5rem; padding: 0 1rem; border-radius: 99px;
+            display: flex; align-items: center; gap: 0.75rem;
+            font-weight: 700; font-size: 0.8rem;
+            white-space: nowrap;
+            flex-shrink: 0; /* Prevent squishing */
+        }
+
+        .timer-display { font-family: monospace; font-size: 1rem; letter-spacing: 1px; }
+
+        /* --- BOTTOM CONTROLS --- */
+        .bottom-controls {
+            width: 100%; max-width: 600px; margin: 0 auto;
+            display: flex; flex-direction: column; gap: 0.5rem;
+        }
+
+        .tools-row {
+            display: flex; justify-content: space-between; gap: 0.25rem;
+            background: rgba(0,0,0,0.4); padding: 0.35rem; border-radius: 1rem;
+        }
+
+        .tool-btn {
+            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
+            padding: 0.25rem; border-radius: 0.75rem; background: transparent;
+            color: var(--text-secondary); font-size: 0.6rem; font-weight: 600;
+            min-width: 0; /* Allow shrinking */
+        }
+        .tool-btn i { font-size: 1rem; margin-bottom: 1px; }
+        .tool-btn.active { color: var(--accent-secondary); background: rgba(14, 165, 233, 0.15); }
+        .tool-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+        .numpad {
+            display: grid; grid-template-columns: repeat(9, 1fr); gap: 0.25rem;
+            padding: 0.35rem; border-radius: 1rem;
+        }
+
+        .num-key {
+            aspect-ratio: 1/1; border-radius: 0.6rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white; font-size: 1.25rem; font-weight: 700;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: grab; position: relative;
+            transition: transform 0.1s, color 0.1s;
+        }
+        .num-key:active { cursor: grabbing; transform: scale(0.9); }
+        .num-key.completed { opacity: 0.3; pointer-events: none; }
+        .num-key.selected { background: var(--accent-primary); border-color: transparent; box-shadow: 0 0 15px var(--accent-glow); }
+        .key-count { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; font-weight: 500; }
+
+        /* Dragging Visuals - High Contrast */
+        .dragging { 
+            opacity: 1 !important; 
+            border: 2px solid #fbbf24 !important;
+            background: #000 !important;
+            color: #fbbf24 !important;
+            box-shadow: 0 0 15px #fbbf24;
+            z-index: 100;
+        }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: grid; place-items: center; z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+        .modal-content {
+            background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
+            padding: 2rem; border-radius: 1.5rem; text-align: center;
+            width: 90%; max-width: 360px;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from{transform:scale(0.8);opacity:0} to{transform:scale(1);opacity:1} }
+
+        /* --- ANIMATIONS --- */
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        
+        <!-- Main Menu -->
+        <div id="menu-view" class="pointer-events-auto fade-in">
+            <div class="menu-container glass-panel">
+                <button onclick="toggleLanguage()" class="btn lang-toggle">EN</button>
+                
+                <h1 class="game-title">SUDOKU 3D</h1>
+                <p class="game-subtitle" data-key="subtitle">Spatial Logic Engine</p>
+
+                <div class="difficulty-grid">
+                    <button class="diff-btn" onclick="setDifficulty('Easy')" id="diff-Easy" data-key="easy">EASY</button>
+                    <button class="diff-btn selected" onclick="setDifficulty('Medium')" id="diff-Medium" data-key="medium">MEDIUM</button>
+                    <button class="diff-btn" onclick="setDifficulty('Hard')" id="diff-Hard" data-key="hard">HARD</button>
+                    <button class="diff-btn" onclick="setDifficulty('Extreme')" id="diff-Extreme" data-key="extreme">EXTREME</button>
+                </div>
+
+                <button onclick="startGame(false)" id="btn-new-game" class="menu-action-btn btn">
+                    <span data-key="newGame">NEW GAME</span>
+                    <i class="fa-solid fa-play"></i>
+                </button>
+
+                <!-- Resume Button -->
+                <button onclick="resumeGame()" id="btn-resume" class="menu-action-btn btn hidden">
+                    <span data-key="resume">RESUME</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+
+                <!-- Updated Menu Layout -->
+                <div class="menu-row" style="margin-top: 1rem;">
+                    <button onclick="startDailyChallenge()" class="icon-btn btn">
+                        <i class="fa-solid fa-calendar-day"></i> <span data-key="daily">Daily</span>
+                    </button>
+                    <button onclick="startSolverMode()" class="icon-btn btn">
+                        <i class="fa-solid fa-robot"></i> <span data-key="solver">Solver</span>
+                    </button>
+                </div>
+                
+                <div class="menu-row">
+                    <div class="code-input-wrapper">
+                         <input type="text" id="game-code-input" class="code-input" placeholder="CODE">
+                         <button onclick="generateRandomCode()" class="btn dice-btn">
+                            <i class="fa-solid fa-dice"></i>
+                         </button>
+                    </div>
+                    <button onclick="startGame(true)" class="icon-btn btn" style="flex:0.6; background: white; color: var(--bg-deep);">
+                        <b data-key="go">GO</b>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game HUD -->
+        <div id="game-view" class="hidden">
+            <!-- Top Bar -->
+            <div class="top-bar pointer-events-auto">
+                <div class="flex-center" style="gap: 0.5rem; background:rgba(0,0,0,0.3); padding:4px 12px 4px 4px; border-radius:99px;">
+                    <button onclick="showMenu()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%; flex-shrink:0;">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span id="game-code-display" style="font-family:monospace; font-size: 0.9rem; font-weight: 800; color: var(--accent-secondary); letter-spacing:1px; white-space:nowrap;"></span>
+                </div>
+
+                <div class="hud-pill glass-panel">
+                    <span id="game-difficulty-display" class="diff-label" style="color:var(--accent-secondary)">HARD</span>
+                    <div class="diff-label" style="width:1px; height:0.8rem; background:rgba(255,255,255,0.2)"></div>
+                    <span id="timer-display" class="timer-display">00:00</span>
+                </div>
+
+                <div class="hud-pill glass-panel" style="padding:0 0.75rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i>
+                    <span id="mistake-count" style="margin-left: 0.5rem">0/3</span>
+                </div>
+            </div>
+
+            <!-- Bottom Controls -->
+            <div class="bottom-controls pointer-events-auto">
+                <!-- Tools -->
+                <div class="tools-row glass-panel">
+                    <button onclick="undo()" class="tool-btn">
+                        <i class="fa-solid fa-rotate-left"></i><span data-key="undo">Undo</span>
+                    </button>
+                    <button id="btn-notes" onclick="toggleNotes()" class="tool-btn">
+                        <i class="fa-solid fa-pencil"></i><span data-key="notes">Notes</span>
+                    </button>
+                    <button onclick="handleErase()" class="tool-btn" style="color:var(--danger)">
+                        <i class="fa-solid fa-eraser"></i><span data-key="erase">Erase</span>
+                    </button>
+                    <button id="btn-hint" onclick="requestHint()" class="tool-btn" style="color:var(--warning)">
+                        <i class="fa-solid fa-lightbulb"></i><span><span data-key="hint">Hint</span> (<span id="hints-count">3</span>)</span>
+                    </button>
+                    <button onclick="resetBoard()" class="tool-btn">
+                        <i class="fa-solid fa-rotate-right"></i><span data-key="reset">Reset</span>
+                    </button>
+                    <button id="btn-mode" onclick="toggleFastMode()" class="tool-btn">
+                        <i id="mode-icon" class="fa-solid fa-hand-pointer"></i><span id="mode-label" data-key="normal">Normal</span>
+                    </button>
+                </div>
+
+                <!-- Numpad -->
+                <div id="numpad-container" class="numpad glass-panel">
+                    <!-- JS Injected -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal-overlay" class="modal-overlay hidden pointer-events-auto">
+        <div class="modal-content">
+            <h2 id="modal-title" style="font-size:2rem; font-weight:800; margin-bottom:0.5rem; color:white;">LEVEL COMPLETE</h2>
+            <p id="modal-desc" style="color:var(--text-secondary); margin-bottom:2rem;">Great job!</p>
+            <div class="flex-col" style="display:flex; gap:0.5rem;">
+                <button onclick="startGame(false)" id="modal-btn-replay" class="menu-action-btn btn" style="width:100%; margin:0;" data-key="newGameBtn">New Game</button>
+                <button onclick="showMenu()" class="btn" style="color:var(--text-secondary); padding:1rem; width:100%;" data-key="backToMenu">Back to Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="fixed inset-0 bg-slate-900 z-50 flex-center flex-col hidden">
+        <div style="width:40px; height:40px; border:4px solid rgba(255,255,255,0.1); border-top-color:var(--accent-primary); border-radius:50%; animation:spin 1s linear infinite;"></div>
+        <p style="margin-top:1rem; font-weight:bold; letter-spacing:2px; font-size:0.8rem;">GENERATING...</p>
+    </div>
+
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+    <script>
+        /* -----------------------
+           LANGUAGE SYSTEM
+           ----------------------- */
+        const translations = {
+            en: {
+                subtitle: "Spatial Logic Engine",
+                newGame: "NEW GAME",
+                resume: "RESUME",
+                daily: "Daily",
+                solver: "Solver",
+                go: "GO",
+                easy: "EASY",
+                medium: "MEDIUM",
+                hard: "HARD",
+                extreme: "EXTREME",
+                undo: "Undo",
+                notes: "Notes",
+                erase: "Erase",
+                hint: "Hint",
+                reset: "Reset",
+                normal: "Normal",
+                fast: "Fast",
+                levelComplete: "LEVEL COMPLETE",
+                greatJob: "Great job!",
+                gameOver: "GAME OVER",
+                tooManyMistakes: "Too many mistakes!",
+                playAgain: "Play Again",
+                newGameBtn: "New Game",
+                backToMenu: "Back to Menu",
+                solved: "SOLVED",
+                sandbox: "SANDBOX"
+            },
+            tr: {
+                subtitle: "Uzamsal Mantık Motoru",
+                newGame: "YENİ OYUN",
+                resume: "DEVAM ET",
+                daily: "Günlük",
+                solver: "Çözücü",
+                go: "BAŞLA",
+                easy: "KOLAY",
+                medium: "ORTA",
+                hard: "ZOR",
+                extreme: "UZMAN",
+                undo: "Geri Al",
+                notes: "Not",
+                erase: "Sil",
+                hint: "İpucu",
+                reset: "Sıfırla",
+                normal: "Normal",
+                fast: "Hızlı",
+                levelComplete: "BÖLÜM BİTTİ",
+                greatJob: "Tebrikler!",
+                gameOver: "OYUN BİTTİ",
+                tooManyMistakes: "Çok fazla hata!",
+                playAgain: "Tekrar Oyna",
+                newGameBtn: "Yeni Oyun",
+                backToMenu: "Menüye Dön",
+                solved: "ÇÖZÜLDÜ",
+                sandbox: "KUM HAVUZU"
+            }
+        };
+
+        let currentLang = 'en';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'tr' : 'en';
+            document.querySelector('.lang-toggle').innerText = currentLang.toUpperCase();
+            updateTexts();
+        }
+
+        function updateTexts() {
+            const t = translations[currentLang];
+            document.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.getAttribute('data-key');
+                if(t[key]) el.innerText = t[key];
+            });
+            if(!Game3D.isMenuMode) {
+                const modeLabel = document.getElementById('mode-label');
+                if(modeLabel) modeLabel.innerText = fastMode ? t.fast : t.normal;
+                
+                const diffEl = document.getElementById('game-difficulty-display');
+                if(diffEl && !isSolverMode) {
+                    diffEl.innerText = t[difficulty.toLowerCase()] || difficulty.toUpperCase();
+                }
+            }
+        }
+
+        /* -----------------------
+           3D ENGINE
+           ----------------------- */
+        const Game3D = {
+            scene: null, camera: null, renderer: null,
+            boardGroup: null, tiles: [], 
+            raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
+            isMenuMode: true, isDragging: false,
+            
+            matBase: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0, clearcoat: 1 }),
+            matSelected: new THREE.MeshPhysicalMaterial({ color: 0x6366f1, emissive: 0x4f46e5, emissiveIntensity: 0.4 }),
+            matError: new THREE.MeshPhysicalMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.4 }),
+            matRelated: new THREE.MeshPhysicalMaterial({ color: 0xe0e7ff }),
+            matHighlight: new THREE.MeshPhysicalMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 0.3 }),
+            
+            init() {
+                const container = document.getElementById('canvas-container');
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+                
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                container.appendChild(this.renderer.domElement);
+
+                // Lights
+                const amb = new THREE.AmbientLight(0xffffff, 0.7);
+                this.scene.add(amb);
+                const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+                dir.position.set(20, 40, 20);
+                dir.castShadow = true;
+                dir.shadow.mapSize.width = 2048; dir.shadow.mapSize.height = 2048;
+                this.scene.add(dir);
+                const rim = new THREE.PointLight(0x6366f1, 2, 50);
+                rim.position.set(-10, 10, -10);
+                this.scene.add(rim);
+
+                this.createBoard();
+                this.fitCamera();
+                this.animate();
+
+                window.addEventListener('resize', () => this.onResize());
+                
+                const cvs = this.renderer.domElement;
+                cvs.addEventListener('pointerdown', e => this.onPointerDown(e));
+                cvs.addEventListener('pointermove', e => this.onPointerMove(e));
+                cvs.addEventListener('pointerup', e => this.onPointerUp(e));
+                cvs.addEventListener('pointerleave', e => this.onPointerUp(e));
+                cvs.addEventListener('dragover', e => e.preventDefault());
+                cvs.addEventListener('drop', e => this.onDrop(e));
+                
+                // Add Service Worker logic here if desired
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('sw.js')
+                        .catch(err => console.log('SW registration failed:', err));
+                }
+            },
+
+            fitCamera() {
+                const isMobile = window.innerWidth < 600;
+                // ZOOM IN to make grid BIGGER. 28 fits well on most phones.
+                // lookAt Y -2 keeps it visually centered between Top Bar and Bottom Controls.
+                const dist = this.isMenuMode ? (isMobile ? 24 : 18) : (isMobile ? 28 : 18); 
+                const y = this.isMenuMode ? 10 : 14;
+                
+                if(this.isMenuMode) {
+                    this.camera.position.set(0, y, dist * 0.8);
+                    this.camera.lookAt(0, 0, 0);
+                } else {
+                    // Game View
+                    this.camera.position.set(0, 16, dist); 
+                    // Adjusted lookAt: -2 centers it better with this zoom level
+                    this.camera.lookAt(0, -2, 0); 
+                }
+            },
+
+            createBoard() {
+                this.boardGroup = new THREE.Group();
+                this.scene.add(this.boardGroup);
+
+                const plane = new THREE.Mesh(
+                    new THREE.PlaneGeometry(200, 200),
+                    new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 })
+                );
+                plane.rotation.x = -Math.PI/2;
+                plane.position.y = -2;
+                plane.receiveShadow = true;
+                this.scene.add(plane);
+
+                const size = 1, gap = 0.08, groupGap = 0.2;
+                const totalSize = (9*size) + (8*gap) + (2*groupGap);
+                const offset = totalSize/2 - size/2;
+
+                for(let r=0; r<9; r++) {
+                    this.tiles[r] = [];
+                    for(let c=0; c<9; c++) {
+                        const x = (c*(size+gap)) + (Math.floor(c/3)*groupGap) - offset;
+                        const z = (r*(size+gap)) + (Math.floor(r/3)*groupGap) - offset;
+                        
+                        const mesh = new THREE.Mesh(
+                            new THREE.BoxGeometry(size, 0.25, size),
+                            this.matBase.clone()
+                        );
+                        mesh.position.set(x, 0, z);
+                        mesh.castShadow = true; mesh.receiveShadow = true;
+                        mesh.userData = { r, c, type: 'tile' };
+                        
+                        const cvs = document.createElement('canvas');
+                        cvs.width=256; cvs.height=256;
+                        const tex = new THREE.CanvasTexture(cvs);
+                        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+                        sprite.position.y = 0.6;
+                        sprite.scale.set(0.9, 0.9, 1);
+                        mesh.userData.ctx = cvs.getContext('2d');
+                        mesh.userData.tex = tex;
+                        mesh.add(sprite);
+
+                        this.boardGroup.add(mesh);
+                        this.tiles[r][c] = mesh;
+                    }
+                }
+            },
+
+            updateVisuals() {
+                const hlVal = selectedNumberInput !== null ? selectedNumberInput : 
+                             (selectedCell && board[selectedCell[0]][selectedCell[1]] ? board[selectedCell[0]][selectedCell[1]] : null);
+
+                for(let r=0; r<9; r++) for(let c=0; c<9; c++) {
+                    const mesh = this.tiles[r][c];
+                    const val = board[r][c];
+                    const isInit = initialBoard[r][c] !== 0;
+                    const isSel = selectedCell && selectedCell[0]===r && selectedCell[1]===c;
+                    const isErr = !isSolverMode && val!==0 && !isInit && val!==solution[r][c] && solution.length > 0;
+                    const isRel = selectedCell && (selectedCell[0]===r || selectedCell[1]===c || 
+                                  (Math.floor(selectedCell[0]/3)===Math.floor(r/3) && Math.floor(selectedCell[1]/3)===Math.floor(c/3)));
+
+                    let mat = this.matBase;
+                    let lift = 0;
+                    if(isSel) { mat = isErr ? this.matError : this.matSelected; lift = 0.2; }
+                    else if(isErr) mat = this.matError;
+                    else if(hlVal && val === hlVal) mat = this.matHighlight;
+                    else if(isRel) mat = this.matRelated;
+                    
+                    mesh.material.color.set(mat.color);
+                    mesh.material.emissive.set(mat.emissive);
+                    mesh.material.emissiveIntensity = mat.emissiveIntensity;
+                    mesh.position.y += (lift - mesh.position.y) * 0.2;
+
+                    const ctx = mesh.userData.ctx;
+                    ctx.clearRect(0,0,256,256);
+                    ctx.textAlign='center'; ctx.textBaseline='middle';
+                    
+                    if(val !== 0) {
+                        ctx.font = isInit ? "900 160px Inter" : "bold 160px Inter";
+                        ctx.fillStyle = isInit ? "#1e293b" : "#4338ca";
+                        if(isErr) ctx.fillStyle = "#ef4444";
+                        ctx.fillText(val, 128, 138);
+                    } else {
+                        const n = notes[`${r}-${c}`];
+                        if(n && n.length) {
+                            ctx.font = "bold 50px Inter";
+                            ctx.fillStyle = "#475569";
+                            n.forEach(num => {
+                                const row = Math.floor((num-1)/3), col = (num-1)%3;
+                                ctx.fillText(num, 60 + col*68, 70 + row*60);
+                            });
+                        }
+                    }
+                    mesh.userData.tex.needsUpdate = true;
+                }
+            },
+
+            getTileAtScreenPos(nx, ny) {
+                this.raycaster.setFromCamera({x:nx, y:ny}, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.boardGroup.children, true);
+                if(intersects.length > 0) {
+                    let obj = intersects[0].object;
+                    while(obj && !obj.userData.type) obj = obj.parent;
+                    if(obj && obj.userData.type === 'tile') return obj;
+                }
+                return null;
+            },
+
+            prevMouse: {x:0, y:0}, rotX: 0.5, rotY: 0,
+            
+            onPointerDown(e) {
+                if(this.isMenuMode) return;
+                this.isDragging = true;
+                this.prevMouse = {x:e.clientX, y:e.clientY};
+                this.wasDrag = false;
+            },
+
+            onPointerUp(e) {
+                if(!this.isDragging) return;
+                this.isDragging = false;
+                
+                if(!this.wasDrag && !this.isMenuMode) {
+                    const nx = (e.clientX / window.innerWidth) * 2 - 1;
+                    const ny = - (e.clientY / window.innerHeight) * 2 + 1;
+                    const tile = this.getTileAtScreenPos(nx, ny);
+                    if(tile) handleCellClick(tile.userData.r, tile.userData.c);
+                    else { if(!fastMode && selectedCell) { selectedCell = null; renderBoard(); } }
+                }
+            },
+
+            onPointerMove(e) {
+                if(this.isMenuMode) return;
+                if(this.isDragging) {
+                    const dx = e.clientX - this.prevMouse.x;
+                    const dy = e.clientY - this.prevMouse.y;
+                    if(Math.abs(dx) > 2 || Math.abs(dy) > 2) this.wasDrag = true;
+                    this.rotY += dx * 0.005;
+                    this.rotX += dy * 0.005;
+                    this.rotX = Math.max(0.2, Math.min(1.0, this.rotX)); 
+                    this.prevMouse = {x:e.clientX, y:e.clientY};
+                }
+            },
+
+            onDrop(e) {
+                e.preventDefault();
+                if(this.isMenuMode) return;
+                const num = parseInt(e.dataTransfer.getData("text/plain"));
+                if(!num) return;
+                const rect = this.renderer.domElement.getBoundingClientRect();
+                const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                const ny = - ((e.clientY - rect.top) / rect.height) * 2 + 1;
+                const tile = this.getTileAtScreenPos(nx, ny);
+                if(tile) {
+                    selectedCell = [tile.userData.r, tile.userData.c];
+                    handleInput(num);
+                }
+            },
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                if(this.isMenuMode) {
+                    this.boardGroup.rotation.y += 0.002;
+                    this.boardGroup.rotation.x = Math.sin(Date.now()*0.0005)*0.1;
+                    this.camera.position.lerp(new THREE.Vector3(0, 14, 18), 0.05);
+                    this.camera.lookAt(0,0,0);
+                } else {
+                    this.boardGroup.rotation.y += (this.rotY - this.boardGroup.rotation.y) * 0.1;
+                    this.boardGroup.rotation.x += (this.rotX - this.boardGroup.rotation.x) * 0.1;
+                }
+                this.renderer.render(this.scene, this.camera);
+            },
+
+            onResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.fitCamera();
+            },
+
+            setMode(menu) {
+                this.isMenuMode = menu;
+                if(!menu) { this.rotY = 0; this.rotX = 0.6; }
+                this.fitCamera(); 
+            }
+        };
+
+        /* -----------------------
+           GAME LOGIC
+           ----------------------- */
+        const workerBlob = new Blob([`
+            function createSeededRandom(seedStr) {
+                let h = 2166136261 >>> 0;
+                for (let i = 0; i < seedStr.length; i++) h = Math.imul(h ^ seedStr.charCodeAt(i), 16777619);
+                return function() {
+                    let t = h += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1);
+                    t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296;
+                }
+            }
+            function solve(b, rng){
+                for(let i=0;i<81;i++){
+                    let R=Math.floor(i/9),C=i%9;
+                    if(b[R][C]==0){
+                        let nums=[1,2,3,4,5,6,7,8,9];
+                        if(rng) nums = nums.map(v => ({v, s: rng()})).sort((a,b)=>a.s-b.s).map(o=>o.v);
+                        for(let n of nums){
+                            if(isValid(b,R,C,n)){
+                                b[R][C]=n;
+                                if(solve(b, rng)) return true;
+                                b[R][C]=0;
+                            }
+                        }
+                        return false;
+                    }
+                }
+                return true;
+            }
+            function isValid(b,r,c,n){for(let i=0;i<9;i++)if(b[r][i]==n||b[i][c]==n)return false;let sr=Math.floor(r/3)*3,sc=Math.floor(c/3)*3;for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(b[sr+i][sc+j]==n)return false;return true;}
+            
+            self.onmessage=e=>{
+                let b=Array(9).fill().map(()=>Array(9).fill(0));
+                const rng = e.data.seed ? createSeededRandom(e.data.seed) : Math.random;
+                solve(b, rng);
+                let sol=JSON.parse(JSON.stringify(b));
+                let mask=Array(81).fill(0).map((_,i)=>i);
+                for(let i=mask.length-1; i>0; i--) {
+                    const j = Math.floor(rng() * (i + 1));
+                    [mask[i], mask[j]] = [mask[j], mask[i]];
+                }
+                let keep = e.data.diff=='Easy'?40:e.data.diff=='Medium'?32:e.data.diff=='Hard'?26:22;
+                for(let i=0;i<81-keep;i++){
+                    let p=mask[i];
+                    b[Math.floor(p/9)][p%9]=0;
+                }
+                self.postMessage({puzzle:b, solution:sol});
+            }
+        `], {type:'application/javascript'});
+
+        let board = [], initialBoard = [], solution = [], notes = {};
+        let difficulty = 'Medium', timer = 0, timerInt = null, mistakes = 0;
+        let selectedCell = null, selectedNumberInput = null;
+        let notesMode = false, fastMode = false, isSolverMode = false;
+        let history = [];
+        let hintsLeft = 3;
+        let isGameComplete = false;
+        let currentCode = null;
+
+        window.onload = () => {
+            Game3D.init();
+            checkSavedGame();
+            updateTexts();
+        };
+
+        function setDifficulty(d) {
+            difficulty = d;
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+            document.getElementById(`diff-${d}`).classList.add('selected');
+        }
+
+        function generateRandomCode() {
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+            let result = "";
+            for(let i=0; i<5; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('game-code-input').value = result;
+        }
+
+        function startDailyChallenge() {
+            const d = new Date();
+            const code = `DAILY-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+            document.getElementById('game-code-input').value = code;
+            setDifficulty('Hard');
+            startGame(true);
+        }
+
+        function startSolverMode() {
+            const inputCode = document.getElementById('game-code-input').value.trim().toUpperCase();
+            if (inputCode) {
+                isSolverMode = true;
+                currentCode = inputCode;
+                document.getElementById('loading').classList.remove('hidden');
+                document.getElementById('loading').classList.add('flex-center');
+                const w = new Worker(URL.createObjectURL(workerBlob));
+                w.onmessage = e => {
+                    solution = e.data.solution;
+                    board = JSON.parse(JSON.stringify(solution)); 
+                    initialBoard = JSON.parse(JSON.stringify(solution)); 
+                    resetState();
+                    enterGame();
+                    document.getElementById('game-difficulty-display').innerText = translations[currentLang].solved;
+                    w.terminate();
+                    document.getElementById('loading').classList.add('hidden');
+                };
+                w.postMessage({ diff: difficulty, seed: inputCode });
+            } else {
+                isSolverMode = true;
+                board = Array.from({length:9}, () => Array(9).fill(0));
+                initialBoard = JSON.parse(JSON.stringify(board));
+                solution = []; 
+                resetState();
+                enterGame();
+                document.getElementById('game-difficulty-display').innerText = translations[currentLang].sandbox;
+            }
+            document.getElementById('mistake-count').innerText = "--"; 
+        }
+
+        function startGame(useCode) {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('loading').classList.add('flex-center');
+            
+            isSolverMode = false;
+            let seed = null;
+            if(useCode) {
+                const val = document.getElementById('game-code-input').value.trim().toUpperCase();
+                if(val) seed = val;
+            }
+            if (!seed) {
+                const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+                let result = "";
+                for(let i=0; i<5; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+                seed = result;
+            }
+            currentCode = seed; 
+
+            const w = new Worker(URL.createObjectURL(workerBlob));
+            w.onmessage = e => {
+                board = e.data.puzzle;
+                initialBoard = JSON.parse(JSON.stringify(board));
+                solution = e.data.solution;
+                resetState();
+                enterGame();
+                w.terminate();
+                document.getElementById('loading').classList.add('hidden');
+            };
+            w.postMessage({ diff: difficulty, seed: seed });
+        }
+
+        function resetState() {
+            timer = 0; mistakes = 0; notes = {}; history = [];
+            selectedCell = null; selectedNumberInput = null;
+            hintsLeft = 3; isGameComplete = false;
+            document.getElementById('mistake-count').innerText = "0/3";
+            document.getElementById('hints-count').innerText = hintsLeft;
+            clearInterval(timerInt);
+            timerInt = setInterval(() => {
+                timer++;
+                const m = Math.floor(timer/60).toString().padStart(2,'0');
+                const s = (timer%60).toString().padStart(2,'0');
+                document.getElementById('timer-display').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function enterGame() {
+            document.getElementById('menu-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('hidden');
+            document.getElementById('modal-overlay').classList.add('hidden');
+            updateTexts();
+            
+            const codeDisplay = document.getElementById('game-code-display');
+            if(currentCode) {
+                codeDisplay.innerText = `#${currentCode}`;
+                codeDisplay.classList.remove('hidden');
+            } else {
+                codeDisplay.classList.add('hidden');
+            }
+            Game3D.setMode(false);
+            renderBoard();
+        }
+
+        function showMenu() {
+            clearInterval(timerInt);
+            document.getElementById('game-view').classList.add('hidden');
+            document.getElementById('modal-overlay').classList.add('hidden');
+            document.getElementById('menu-view').classList.remove('hidden');
+            Game3D.setMode(true);
+            saveGame();
+            checkSavedGame();
+        }
+
+        function requestHint() {
+            if (isSolverMode || !solution.length || hintsLeft <= 0 || isGameComplete) return;
+            let empties = [];
+            for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(board[r][c] === 0) empties.push([r,c]);
+            if(empties.length > 0) {
+                let r, c;
+                if(selectedCell && board[selectedCell[0]][selectedCell[1]] === 0) [r, c] = selectedCell;
+                else [r,c] = empties[Math.floor(Math.random() * empties.length)];
+                
+                const val = solution[r][c];
+                board[r][c] = val;
+                notes[`${r}-${c}`] = [];
+                const sr = Math.floor(r/3)*3, sc = Math.floor(c/3)*3;
+                for(let i=0; i<9; i++) {
+                     if(notes[`${r}-${i}`]) notes[`${r}-${i}`] = notes[`${r}-${i}`].filter(x=>x!==val);
+                     if(notes[`${i}-${c}`]) notes[`${i}-${c}`] = notes[`${i}-${c}`].filter(x=>x!==val);
+                     const br = sr + Math.floor(i/3), bc = sc + (i%3);
+                     if(notes[`${br}-${bc}`]) notes[`${br}-${bc}`] = notes[`${br}-${bc}`].filter(x=>x!==val);
+                }
+                hintsLeft--;
+                document.getElementById('hints-count').innerText = hintsLeft;
+                selectedCell = [r,c];
+                checkWin();
+                renderBoard();
+            }
+        }
+
+        function handleCellClick(r, c) {
+            if(isGameComplete) return;
+            const val = board[r][c];
+            if (fastMode) {
+                if (selectedNumberInput !== null) {
+                    if (val === 0) handleInput(selectedNumberInput, r, c); 
+                    else if (val === selectedNumberInput) selectedNumberInput = null; 
+                } else {
+                    if (val !== 0) selectedNumberInput = val; 
+                }
+                selectedCell = null;
+            } else {
+                if (selectedCell && selectedCell[0]===r && selectedCell[1]===c) selectedCell = null;
+                else selectedCell = [r, c];
+            }
+            renderBoard();
+        }
+
+        function handleNumpadClick(num) {
+            if(isGameComplete) return;
+            if (fastMode) {
+                selectedNumberInput = (selectedNumberInput === num) ? null : num;
+            } else {
+                if (selectedCell) handleInput(num, selectedCell[0], selectedCell[1]);
+                else selectedNumberInput = (selectedNumberInput === num) ? null : num;
+            }
+            renderBoard();
+        }
+
+        function handleInput(num, r, c) {
+            if (r === undefined || c === undefined) {
+                 if(!selectedCell) return;
+                 [r, c] = selectedCell;
+            }
+            if (initialBoard[r][c] !== 0 && !isSolverMode) return; 
+            if (board[r][c] === num) return; 
+
+            history.push({
+                b: JSON.parse(JSON.stringify(board)),
+                n: JSON.parse(JSON.stringify(notes)),
+                m: mistakes
+            });
+
+            if (notesMode) {
+                const k = `${r}-${c}`;
+                if (!notes[k]) notes[k] = [];
+                if (notes[k].includes(num)) notes[k] = notes[k].filter(x => x !== num);
+                else notes[k].push(num);
+            } else {
+                if (isSolverMode) board[r][c] = num; 
+                else {
+                    if (solution.length > 0 && num !== solution[r][c]) {
+                        mistakes++;
+                        document.getElementById('mistake-count').innerText = `${mistakes}/3`;
+                        board[r][c] = num; 
+                        if (mistakes >= 3) {
+                            isGameComplete = true;
+                            document.getElementById('modal-title').innerText = translations[currentLang].gameOver;
+                            document.getElementById('modal-desc').innerText = translations[currentLang].tooManyMistakes;
+                            document.getElementById('modal-overlay').classList.remove('hidden');
+                        }
+                    } else {
+                        board[r][c] = num;
+                        const sr = Math.floor(r/3)*3, sc = Math.floor(c/3)*3;
+                        for(let i=0; i<9; i++) {
+                            if(notes[`${r}-${i}`]) notes[`${r}-${i}`] = notes[`${r}-${i}`].filter(x=>x!==num);
+                            if(notes[`${i}-${c}`]) notes[`${i}-${c}`] = notes[`${i}-${c}`].filter(x=>x!==num);
+                            const br = sr + Math.floor(i/3), bc = sc + (i%3);
+                            if(notes[`${br}-${bc}`]) notes[`${br}-${bc}`] = notes[`${br}-${bc}`].filter(x=>x!==num);
+                        }
+                        checkWin();
+                    }
+                }
+            }
+            renderBoard();
+        }
+
+        function checkWin() {
+            let filled = 0;
+            let isCorrect = true;
+            for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+                if(board[r][c]!==0) {
+                     filled++;
+                     if(solution.length > 0 && board[r][c] !== solution[r][c]) isCorrect = false;
+                } else {
+                    isCorrect = false;
+                }
+            }
+            if(filled===81 && isCorrect) {
+                isGameComplete = true;
+                document.getElementById('modal-title').innerText = translations[currentLang].levelComplete;
+                document.getElementById('modal-desc').innerText = translations[currentLang].greatJob;
+                document.getElementById('modal-overlay').classList.remove('hidden');
+            }
+        }
+
+        function handleDragStart(e, num) {
+            e.dataTransfer.setData("text/plain", num);
+            e.dataTransfer.effectAllowed = "copy";
+            e.target.classList.add('dragging');
+        }
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function undo() {
+            if(!history.length || isGameComplete) return;
+            const s = history.pop();
+            board = s.b; notes = s.n; mistakes = s.m;
+            document.getElementById('mistake-count').innerText = `${mistakes}/3`;
+            renderBoard();
+        }
+        
+        function handleErase() {
+            if(!selectedCell || isGameComplete) return;
+            const [r,c] = selectedCell;
+            if(initialBoard[r][c]!==0 && !isSolverMode) return;
+            board[r][c] = 0; notes[`${r}-${c}`] = [];
+            renderBoard();
+        }
+
+        function toggleNotes() {
+            notesMode = !notesMode;
+            document.getElementById('btn-notes').classList.toggle('active');
+        }
+
+        function toggleFastMode() {
+            fastMode = !fastMode;
+            const btn = document.getElementById('btn-mode');
+            const icon = document.getElementById('mode-icon');
+            const label = document.getElementById('mode-label');
+            const t = translations[currentLang];
+            if(fastMode) {
+                btn.classList.add('active');
+                icon.className = 'fa-solid fa-bolt';
+                label.innerText = t.fast;
+                selectedCell = null;
+            } else {
+                btn.classList.remove('active');
+                icon.className = 'fa-solid fa-hand-pointer';
+                label.innerText = t.normal;
+                selectedNumberInput = null;
+            }
+            renderBoard();
+        }
+
+        function resetBoard() {
+            if(!confirm("Reset board to start?")) return;
+            
+            // Revert to initial state
+            board = JSON.parse(JSON.stringify(initialBoard));
+            notes = {};
+            mistakes = 0;
+            // Keep timer running but reset mistake count UI
+            document.getElementById('mistake-count').innerText = "0/3";
+            // Clear history so you can't undo the reset
+            history = [];
+            
+            selectedCell = null;
+            selectedNumberInput = null;
+            renderBoard();
+        }
+
+        function renderBoard() {
+            Game3D.updateVisuals();
+            renderNumpad();
+        }
+
+        function renderNumpad() {
+            const counts = Array(10).fill(0);
+            for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+                if(board[r][c] > 0 && (isSolverMode || board[r][c] === solution[r][c])) {
+                    counts[board[r][c]]++;
+                }
+            }
+            let html = '';
+            for(let i=1; i<=9; i++) {
+                const done = counts[i] >= 9;
+                const active = selectedNumberInput === i;
+                html += `
+                    <div class="num-key ${done?'completed':''} ${active?'selected':''}" 
+                         draggable="true" 
+                         ondragstart="handleDragStart(event, ${i})" 
+                         ondragend="handleDragEnd(event)"
+                         onclick="handleNumpadClick(${i})">
+                        <span>${i}</span>
+                        <span class="key-count">${9-counts[i]}</span>
+                    </div>
+                `;
+            }
+            document.getElementById('numpad-container').innerHTML = html;
+        }
+
+        function saveGame() {
+            if(!isSolverMode && !isGameComplete) localStorage.setItem('sudoku3d_v2', JSON.stringify({ board, initialBoard, solution, timer, mistakes, difficulty, hintsLeft, currentCode }));
+        }
+        
+        function checkSavedGame() {
+            const s = JSON.parse(localStorage.getItem('sudoku3d_v2'));
+            if(s) document.getElementById('btn-resume').classList.remove('hidden');
+            else document.getElementById('btn-resume').classList.add('hidden');
+        }
+
+        function resumeGame() {
+             const s = JSON.parse(localStorage.getItem('sudoku3d_v2'));
+             if(s) {
+                 board = s.board; initialBoard = s.initialBoard; solution = s.solution;
+                 timer = s.timer; mistakes = s.mistakes; difficulty = s.difficulty;
+                 hintsLeft = s.hintsLeft || 3; currentCode = s.currentCode;
+                 document.getElementById('mistake-count').innerText = `${mistakes}/3`;
+                 document.getElementById('hints-count').innerText = hintsLeft;
+                 resetState(); 
+                 timer = s.timer; 
+                 enterGame();
+             }
+        }
+    </script>
+</body>
+</html>
