@@ -223,6 +223,12 @@
             padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)) 1rem;
         }
 
+        @media (max-width: 600px) {
+            #game-view {
+                padding: max(1rem, env(safe-area-inset-top)) 0.5rem max(1rem, env(safe-area-inset-bottom)) 0.5rem; /* Reduced side padding */
+            }
+        }
+
         .top-bar {
             display: flex; justify-content: space-between; align-items: center;
             width: 100%; max-width: 800px; margin: 0 auto;
@@ -282,6 +288,18 @@
             padding: 0.35rem; border-radius: 1rem;
         }
 
+        /* Mobile specific fixes for numpad */
+        @media (max-width: 600px) {
+            .numpad {
+                gap: 0.15rem; /* Tighter gap for mobile */
+                padding: 0.25rem;
+            }
+            .num-key {
+                font-size: 1rem !important; /* Smaller font */
+                border-radius: 0.4rem !important;
+            }
+        }
+
         .num-key {
             aspect-ratio: 1/1; border-radius: 0.6rem;
             background: rgba(255,255,255,0.06);
@@ -290,20 +308,32 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             cursor: grab; position: relative;
             transition: transform 0.1s, color 0.1s;
+            touch-action: none; /* Prevent scroll on keys for custom drag */
         }
         .num-key:active { cursor: grabbing; transform: scale(0.9); }
         .num-key.completed { opacity: 0.3; pointer-events: none; }
         .num-key.selected { background: var(--accent-primary); border-color: transparent; box-shadow: 0 0 15px var(--accent-glow); }
         .key-count { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; font-weight: 500; }
 
-        /* Dragging Visuals - High Contrast */
+        /* Dragging Visuals - High Contrast & Mobile Proxy */
         .dragging { 
-            opacity: 1 !important; 
-            border: 2px solid #fbbf24 !important;
-            background: #000 !important;
-            color: #fbbf24 !important;
-            box-shadow: 0 0 15px #fbbf24;
-            z-index: 100;
+            opacity: 0.5; /* Origin visual state */
+        }
+        
+        .drag-proxy {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            width: 48px; height: 48px;
+            background: #fbbf24; /* Yellow High Visibility */
+            color: #000;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900;
+            font-size: 1.5rem;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.8);
+            border: 3px solid white;
         }
 
         /* --- MODAL --- */
@@ -394,15 +424,24 @@
                     <span id="game-code-display" style="font-family:monospace; font-size: 0.9rem; font-weight: 800; color: var(--accent-secondary); letter-spacing:1px; white-space:nowrap;"></span>
                 </div>
 
+                <!-- Timer -->
                 <div class="hud-pill glass-panel">
                     <span id="game-difficulty-display" class="diff-label" style="color:var(--accent-secondary)">HARD</span>
                     <div class="diff-label" style="width:1px; height:0.8rem; background:rgba(255,255,255,0.2)"></div>
                     <span id="timer-display" class="timer-display">00:00</span>
                 </div>
 
-                <div class="hud-pill glass-panel" style="padding:0 0.75rem;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i>
-                    <span id="mistake-count" style="margin-left: 0.5rem">0/3</span>
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <!-- 2D View Button (Moved here) -->
+                    <button id="btn-view" onclick="Game3D.toggleView()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%;">
+                        <i id="view-icon" class="fa-solid fa-layer-group"></i>
+                    </button>
+
+                    <!-- Error Count -->
+                    <div class="hud-pill glass-panel" style="padding:0 0.75rem;">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i>
+                        <span id="mistake-count" style="margin-left: 0.5rem">0/3</span>
+                    </div>
                 </div>
             </div>
 
@@ -553,7 +592,7 @@
             scene: null, camera: null, renderer: null,
             boardGroup: null, tiles: [], 
             raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
-            isMenuMode: true, isDragging: false,
+            isMenuMode: true, isDragging: false, is2D: false,
             
             matBase: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0, clearcoat: 1 }),
             matSelected: new THREE.MeshPhysicalMaterial({ color: 0x6366f1, emissive: 0x4f46e5, emissiveIntensity: 0.4 }),
@@ -598,28 +637,43 @@
                 cvs.addEventListener('dragover', e => e.preventDefault());
                 cvs.addEventListener('drop', e => this.onDrop(e));
                 
-                // Add Service Worker logic here if desired
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.register('sw.js')
                         .catch(err => console.log('SW registration failed:', err));
                 }
             },
 
+            toggleView() {
+                this.is2D = !this.is2D;
+                const btn = document.getElementById('view-icon');
+                if (this.is2D) {
+                    btn.className = 'fa-solid fa-cube';
+                } else {
+                    btn.className = 'fa-solid fa-layer-group';
+                }
+                this.fitCamera();
+            },
+
             fitCamera() {
                 const isMobile = window.innerWidth < 600;
-                // ZOOM IN to make grid BIGGER. 28 fits well on most phones.
-                // lookAt Y -2 keeps it visually centered between Top Bar and Bottom Controls.
-                const dist = this.isMenuMode ? (isMobile ? 24 : 18) : (isMobile ? 28 : 18); 
-                const y = this.isMenuMode ? 10 : 14;
-                
-                if(this.isMenuMode) {
+                // Distances adjusted to ensure full grid visibility in both 2D and 3D
+                let dist = this.isMenuMode ? (isMobile ? 24 : 18) : (isMobile ? 28 : 18); 
+                let y = this.isMenuMode ? 10 : 14;
+
+                if (this.isMenuMode) {
                     this.camera.position.set(0, y, dist * 0.8);
                     this.camera.lookAt(0, 0, 0);
                 } else {
-                    // Game View
-                    this.camera.position.set(0, 16, dist); 
-                    // Adjusted lookAt: -2 centers it better with this zoom level
-                    this.camera.lookAt(0, -2, 0); 
+                    if (this.is2D) {
+                        // 2D View
+                        const zoom2D = isMobile ? 26 : 22; 
+                        this.camera.position.set(0, zoom2D, 0);
+                        this.camera.lookAt(0, 0, 0); 
+                    } else {
+                        // 3D Perspective view
+                        this.camera.position.set(0, 16, dist); 
+                        this.camera.lookAt(0, -3, 0); 
+                    }
                 }
             },
 
@@ -758,9 +812,16 @@
                     const dx = e.clientX - this.prevMouse.x;
                     const dy = e.clientY - this.prevMouse.y;
                     if(Math.abs(dx) > 2 || Math.abs(dy) > 2) this.wasDrag = true;
-                    this.rotY += dx * 0.005;
-                    this.rotX += dy * 0.005;
-                    this.rotX = Math.max(0.2, Math.min(1.0, this.rotX)); 
+                    
+                    // Allow rotation in 2D mode now (Turnable)
+                    if (this.is2D) {
+                        this.rotY += dx * 0.005;
+                    } else {
+                        // 3D Mode
+                        this.rotY += dx * 0.005;
+                        this.rotX += dy * 0.005;
+                        this.rotX = Math.max(0.2, Math.min(1.0, this.rotX)); 
+                    }
                     this.prevMouse = {x:e.clientX, y:e.clientY};
                 }
             },
@@ -788,8 +849,28 @@
                     this.camera.position.lerp(new THREE.Vector3(0, 14, 18), 0.05);
                     this.camera.lookAt(0,0,0);
                 } else {
-                    this.boardGroup.rotation.y += (this.rotY - this.boardGroup.rotation.y) * 0.1;
-                    this.boardGroup.rotation.x += (this.rotX - this.boardGroup.rotation.x) * 0.1;
+                    if (this.is2D) {
+                        // 2D Logic: Lerp to Flat X rotation (0), Allow Y rotation (Spin)
+                        this.boardGroup.rotation.x += (0 - this.boardGroup.rotation.x) * 0.1;
+                        this.boardGroup.rotation.y += (this.rotY - this.boardGroup.rotation.y) * 0.1;
+                        
+                        // Camera overhead
+                        const isMobile = window.innerWidth < 600;
+                        const zoom2D = isMobile ? 26 : 22; 
+                        this.camera.position.lerp(new THREE.Vector3(0, zoom2D, 0), 0.05);
+                        this.camera.lookAt(0, 0, 0); 
+                    } else {
+                        // 3D perspective handling
+                        this.boardGroup.rotation.y += (this.rotY - this.boardGroup.rotation.y) * 0.1;
+                        this.boardGroup.rotation.x += (this.rotX - this.boardGroup.rotation.x) * 0.1;
+                        
+                        // Camera stays at fitted position
+                        const isMobile = window.innerWidth < 600;
+                        const dist = isMobile ? 28 : 18; 
+                        const targetPos = new THREE.Vector3(0, 16, dist);
+                        this.camera.position.lerp(targetPos, 0.05);
+                        this.camera.lookAt(0, -3, 0); 
+                    }
                 }
                 this.renderer.render(this.scene, this.camera);
             },
@@ -867,6 +948,101 @@
         let hintsLeft = 3;
         let isGameComplete = false;
         let currentCode = null;
+
+        // --- Custom Touch Drag Logic ---
+        let dragProxy = null;
+        let activeTouchId = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        function initTouchDrag() {
+            // Re-attach touch events to current keys
+            const keys = document.querySelectorAll('.num-key');
+            keys.forEach(key => {
+                key.addEventListener('touchstart', onTouchStart, {passive: false});
+            });
+        }
+
+        function onTouchStart(e) {
+            if(e.touches.length > 1) return;
+            // Only prevent default if we intend to drag, but we also want taps
+            // We'll prevent default on move if it's a drag
+            
+            const touch = e.touches[0];
+            const num = parseInt(this.innerText);
+            if(isNaN(num)) return;
+
+            activeTouchId = touch.identifier;
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            
+            this.classList.add('dragging');
+            
+            // Attach move/end to window to track dragging outside the element
+            window.addEventListener('touchmove', onTouchMove, {passive: false});
+            window.addEventListener('touchend', onTouchEnd);
+        }
+
+        function onTouchMove(e) {
+            const touch = Array.from(e.touches).find(t => t.identifier === activeTouchId);
+            if (!touch) return;
+            
+            const dx = touch.clientX - touchStartX;
+            const dy = touch.clientY - touchStartY;
+            
+            // If moved significantly, assume drag
+            if(Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                e.preventDefault(); // Prevent scrolling
+                
+                if(!dragProxy) {
+                    dragProxy = document.createElement('div');
+                    dragProxy.className = 'drag-proxy';
+                    // Find the number from the dragging element
+                    const el = document.querySelector('.num-key.dragging');
+                    if(el) dragProxy.innerText = el.innerText.trim();
+                    document.body.appendChild(dragProxy);
+                }
+                
+                dragProxy.style.left = touch.clientX + 'px';
+                dragProxy.style.top = touch.clientY + 'px';
+            }
+        }
+
+        function onTouchEnd(e) {
+            const touch = Array.from(e.changedTouches).find(t => t.identifier === activeTouchId);
+            if (!touch) return;
+
+            const el = document.querySelector('.num-key.dragging');
+            const num = el ? parseInt(el.innerText) : 0;
+
+            if(dragProxy) {
+                // Was a drag
+                handleTouchDrop(touch.clientX, touch.clientY, num);
+                dragProxy.remove();
+                dragProxy = null;
+            } else {
+                // Was a tap
+                handleNumpadClick(num);
+            }
+
+            if(el) el.classList.remove('dragging');
+            activeTouchId = null;
+            
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onTouchEnd);
+        }
+
+        function handleTouchDrop(cx, cy, num) {
+            // Convert clientX/Y to NDC for Three.js
+            const nx = (cx / window.innerWidth) * 2 - 1;
+            const ny = - (cy / window.innerHeight) * 2 + 1;
+            
+            const tile = Game3D.getTileAtScreenPos(nx, ny);
+            if(tile) {
+                selectedCell = [tile.userData.r, tile.userData.c];
+                handleInput(num);
+            }
+        }
 
         window.onload = () => {
             Game3D.init();
@@ -1192,6 +1368,7 @@
         function renderBoard() {
             Game3D.updateVisuals();
             renderNumpad();
+            initTouchDrag(); // Re-bind touch events for mobile
         }
 
         function renderNumpad() {
