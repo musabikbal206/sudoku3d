@@ -694,6 +694,7 @@
                 this.boardGroup = new THREE.Group();
                 this.scene.add(this.boardGroup);
 
+                // Floor
                 const plane = new THREE.Mesh(
                     new THREE.PlaneGeometry(200, 200),
                     new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 })
@@ -706,8 +707,12 @@
                 const size = 1, gap = 0.08, groupGap = 0.2;
                 const totalSize = (9*size) + (8*gap) + (2*groupGap);
                 const offset = totalSize/2 - size/2;
-
                 const maxAnisotropy = this.renderer.capabilities.getMaxAnisotropy();
+
+                // Optimization: Create Geometry & Material Once
+                const boxGeo = new THREE.BoxGeometry(size, 0.25, size);
+                const edgesGeo = new THREE.EdgesGeometry(boxGeo); // Calculates the wireframe
+                const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000 }); // Black lines
 
                 for(let r=0; r<9; r++) {
                     this.tiles[r] = [];
@@ -715,23 +720,26 @@
                         const x = (c*(size+gap)) + (Math.floor(c/3)*groupGap) - offset;
                         const z = (r*(size+gap)) + (Math.floor(r/3)*groupGap) - offset;
                         
-                        const mesh = new THREE.Mesh(
-                            new THREE.BoxGeometry(size, 0.25, size),
-                            this.matBase.clone()
-                        );
+                        // 1. The Block
+                        const mesh = new THREE.Mesh(boxGeo, this.matBase.clone());
                         mesh.position.set(x, 0, z);
                         mesh.castShadow = true; mesh.receiveShadow = true;
                         mesh.userData = { r, c, type: 'tile' };
+
+                        // ---> ADDED: Physical Black Edges <---
+                        const edges = new THREE.LineSegments(edgesGeo, edgeMat);
+                        mesh.add(edges);
+                        // -------------------------------------
                         
+                        // 2. Texture Logic
                         const cvs = document.createElement('canvas');
-                        cvs.width = 512; 
-                        cvs.height = 512;
-                        
+                        cvs.width = 512; cvs.height = 512;
                         const tex = new THREE.CanvasTexture(cvs);
                         tex.anisotropy = maxAnisotropy;
                         tex.minFilter = THREE.LinearFilter;
                         tex.magFilter = THREE.LinearFilter;
                         
+                        // 3. The Sprite
                         const spriteMat = new THREE.SpriteMaterial({ 
                             map: tex,
                             transparent: true,
@@ -766,6 +774,7 @@
                     const isRel = selectedCell && (selectedCell[0]===r || selectedCell[1]===c || 
                                   (Math.floor(selectedCell[0]/3)===Math.floor(r/3) && Math.floor(selectedCell[1]/3)===Math.floor(c/3)));
 
+                    // --- 1. Update Block Color ---
                     let mat = this.matBase;
                     let lift = 0;
                     if(isSel) { mat = isErr ? this.matError : this.matSelected; lift = 0.2; }
@@ -777,24 +786,32 @@
                     mesh.material.emissive.set(mat.emissive);
                     mesh.material.emissiveIntensity = mat.emissiveIntensity;
                     
+                    // Animate Block Lift
                     mesh.position.y += (lift - mesh.position.y) * 0.2;
 
+                    // --- 2. Draw Text Only (No Borders) ---
                     const ctx = mesh.userData.ctx;
                     ctx.clearRect(0, 0, 512, 512);
+                    // CLEAN: No strokeRect here anymore
+                    
                     ctx.textAlign = 'center'; 
                     ctx.textBaseline = 'middle';
                     
                     if(val !== 0) {
+                        // Main Number
                         ctx.font = isInit ? "900 350px Arial" : "bold 350px Arial";
                         ctx.fillStyle = isInit ? "#0f172a" : "#4338ca"; 
                         if(isErr) ctx.fillStyle = "#ef4444";
                         ctx.fillText(val, 256, 256);
                     } else {
+                        // Notes
                         const n = notes[`${r}-${c}`];
                         if(n && n.length) {
                             ctx.font = "bold 130px Arial";
                             ctx.fillStyle = "#000000"; 
+                            
                             const posMap = [128, 256, 384];
+                            
                             n.forEach(num => {
                                 const row = Math.floor((num-1)/3);
                                 const col = (num-1)%3;
