@@ -1273,18 +1273,46 @@
 
         function handleCellClick(r, c) {
             if(isGameComplete || isPaused) return;
+
             const val = board[r][c];
+            // Check if this cell is "done" (correct and not empty)
+            const isLocked = !isSolverMode && val !== 0 && val === solution[r][c];
+
+            // If Locked: We only update the highlight number (Pipette behavior). 
+            // We DO NOT set 'selectedCell', preventing edits.
+            if (isLocked) {
+                if (fastMode) {
+                    // In fast mode, clicking a locked number switches your "paint brush" to that number
+                    selectedNumberInput = (selectedNumberInput === val) ? null : val;
+                } else {
+                    // In normal mode, just highlight the number
+                    selectedNumberInput = (selectedNumberInput === val) ? null : val;
+                    selectedCell = null; // Ensure we cannot type into this cell
+                }
+                renderBoard();
+                return;
+            }
+
+            // --- Standard Logic for Editable Cells ---
             if (fastMode) {
                 if (selectedNumberInput !== null) {
                     if (val === 0) handleInput(selectedNumberInput, r, c); 
                     else if (val === selectedNumberInput) selectedNumberInput = null; 
+                    else selectedNumberInput = val; // Switch number if clicking different existing number
                 } else {
                     if (val !== 0) selectedNumberInput = val; 
                 }
                 selectedCell = null;
             } else {
-                if (selectedCell && selectedCell[0]===r && selectedCell[1]===c) selectedCell = null;
-                else selectedCell = [r, c];
+                // Toggle selection
+                if (selectedCell && selectedCell[0]===r && selectedCell[1]===c) {
+                    selectedCell = null;
+                    selectedNumberInput = null; // Clear highlight if deselecting
+                } else {
+                    selectedCell = [r, c];
+                    // Also highlight the number in the cell we just clicked
+                    if (val !== 0) selectedNumberInput = val;
+                }
             }
             renderBoard();
         }
@@ -1306,6 +1334,14 @@
                  [r, c] = selectedCell;
             }
             if (initialBoard[r][c] !== 0 && !isSolverMode) return; 
+
+            // ---> LOCK CHECK <---
+            // Prevent overwriting if the existing value is already correct
+            if (!isSolverMode && board[r][c] !== 0 && board[r][c] === solution[r][c]) {
+                return;
+            }
+            // --------------------
+
             if (board[r][c] === num) return; 
 
             history.push({
