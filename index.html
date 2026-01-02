@@ -464,37 +464,73 @@
         </div>
 
         <div id="game-view" class="hidden">
+            <style>
+                @media (max-width: 450px) {
+                    .mobile-hide { display: none !important; }
+                    .mobile-compact-btn { width: 2rem !important; height: 2rem !important; }
+                    .mobile-compact-pill { padding: 0 0.5rem !important; font-size: 0.7rem !important; height: 2rem !important; }
+                    .top-bar { gap: 0.25rem !important; }
+                    
+                    /* Show FAB on mobile */
+                    .mobile-fab { display: flex !important; }
+                }
+                
+                /* Floating Action Button Style */
+                .mobile-fab {
+                    position: absolute;
+                    top: -3.5rem; /* Floats above the control bar */
+                    right: 0.5rem; /* Aligned with the rightmost button (Mode Toggle) */
+                    width: 3rem;
+                    height: 3rem;
+                    border-radius: 50%;
+                    background: var(--accent-secondary);
+                    color: white;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+                    z-index: 50;
+                    display: none; /* Hidden on desktop */
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.2rem;
+                    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                }
+            </style>
+
             <div class="top-bar pointer-events-auto">
                 <div class="flex-center" style="gap: 0.25rem; background:rgba(0,0,0,0.3); padding:4px 8px 4px 4px; border-radius:99px;">
-                    <button onclick="showMenu()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%; flex-shrink:0;">
+                    <button onclick="showMenu()" class="btn glass-panel mobile-compact-btn" style="width:2.5rem; height:2.5rem; border-radius:50%; flex-shrink:0;">
                         <i class="fa-solid fa-chevron-left"></i>
                     </button>
                     <span id="game-code-display" style="font-family:monospace; font-size: 0.8rem; font-weight: 800; color: var(--accent-secondary); letter-spacing:0.5px; white-space:nowrap; max-width: 15vw; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle;"></span>
                 </div>
 
-                <div class="hud-pill glass-panel" onclick="togglePause()" style="cursor: pointer;">
+                <div class="hud-pill glass-panel mobile-compact-pill" onclick="togglePause()" style="cursor: pointer;">
                     <span id="game-difficulty-display" class="diff-label" style="color:var(--accent-secondary)">HARD</span>
                     <div class="diff-label" style="width:1px; height:0.8rem; background:rgba(255,255,255,0.2)"></div>
                     <span id="timer-display" class="timer-display">00:00</span>
                     <i id="pause-icon" class="fa-solid fa-pause" style="font-size: 0.7rem; margin-left: 0.5rem; opacity: 0.5;"></i>
                 </div>
 
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                    <button onclick="downloadPDF()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%;" title="Download PDF">
+                <div style="display:flex; align-items:center; gap:0.25rem;">
+                    <button onclick="downloadPDF()" class="btn glass-panel mobile-hide" style="width:2.5rem; height:2.5rem; border-radius:50%;" title="Download PDF">
                         <i class="fa-solid fa-print"></i>
                     </button>
-                    <button id="btn-view" onclick="Game3D.toggleView()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%;">
+                    <button id="btn-view" onclick="Game3D.toggleView()" class="btn glass-panel mobile-compact-btn" style="width:2.5rem; height:2.5rem; border-radius:50%;">
                         <i id="view-icon" class="fa-solid fa-layer-group"></i>
                     </button>
 
-                    <div id="status-mistakes" class="hud-pill glass-panel" style="padding:0 0.75rem;">
+                    <div id="status-mistakes" class="hud-pill glass-panel mobile-compact-pill" style="padding:0 0.75rem;">
                         <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i>
                         <span id="mistake-count" style="margin-left: 0.5rem">0/3</span>
                     </div>
                 </div>
             </div>
 
-            <div class="bottom-controls pointer-events-auto">
+            <div class="bottom-controls pointer-events-auto" style="position: relative;">
+                
+                <button onclick="downloadPDF()" class="btn mobile-fab">
+                    <i class="fa-solid fa-print"></i>
+                </button>
+
                 <div id="game-controls" class="tools-row glass-panel">
                     <button onclick="undo()" class="tool-btn">
                         <i class="fa-solid fa-rotate-left"></i><span data-key="undo">Undo</span>
