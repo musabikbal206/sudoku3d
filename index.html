@@ -162,7 +162,7 @@
             border-radius: 1rem;
             font-weight: 800;
             font-size: 1.1rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             display: flex; justify-content: space-between; align-items: center;
         }
         .menu-action-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.5); }
@@ -178,6 +178,12 @@
             background: var(--success);
             color: white;
             box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+        }
+
+        #btn-classic {
+            background: #475569;
+            color: white;
+            box-shadow: 0 4px 15px rgba(71, 85, 105, 0.3);
         }
 
         /* Updated Menu Layout */
@@ -280,6 +286,19 @@
         .tool-btn.active { color: var(--accent-secondary); background: rgba(14, 165, 233, 0.15); }
         .tool-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
 
+        /* SOLVER TOOLS */
+        .solver-tools {
+            display: flex; gap: 0.5rem;
+            background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 1rem;
+        }
+        .solver-btn {
+            flex: 1; padding: 0.75rem; border-radius: 0.75rem; font-weight: bold; font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        }
+        .btn-solve-action { background: var(--accent-primary); color: white; flex: 2; }
+        .btn-action-secondary { background: rgba(255,255,255,0.1); color: var(--text-secondary); }
+        .btn-action-secondary:hover { background: rgba(255,255,255,0.2); color: white; }
+
         .numpad {
             display: grid; grid-template-columns: repeat(9, 1fr); gap: 0.25rem;
             padding: 0.35rem; border-radius: 1rem;
@@ -352,6 +371,16 @@
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         @keyframes popIn { from{transform:scale(0.8);opacity:0} to{transform:scale(1);opacity:1} }
+        
+        /* Modal Action Button Styles */
+        .modal-btn {
+            width: 100%; padding: 1rem; border-radius: 1rem; 
+            font-weight: 800; margin-bottom: 0.5rem;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        }
+        .modal-btn-primary { background: var(--accent-primary); color: white; box-shadow: 0 4px 15px var(--accent-glow); }
+        .modal-btn-secondary { background: rgba(255,255,255,0.1); color: white; }
+        .modal-btn-outline { border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); background: transparent; }
 
         /* --- PAUSE OVERLAY (NEW) --- */
         #pause-overlay {
@@ -405,6 +434,11 @@
                     <span data-key="resume">RESUME</span>
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
+                
+                <button onclick="window.location.href='https://musabikbal206.github.io/sudoku/'" id="btn-classic" class="menu-action-btn btn">
+                    <span>CLASSIC 2D</span>
+                    <i class="fa-solid fa-border-all"></i>
+                </button>
 
                 <div class="menu-row" style="margin-top: 1rem;">
                     <button onclick="startDailyChallenge()" class="icon-btn btn">
@@ -442,15 +476,18 @@
                     <span id="game-difficulty-display" class="diff-label" style="color:var(--accent-secondary)">HARD</span>
                     <div class="diff-label" style="width:1px; height:0.8rem; background:rgba(255,255,255,0.2)"></div>
                     <span id="timer-display" class="timer-display">00:00</span>
-                    <i class="fa-solid fa-pause" style="font-size: 0.7rem; margin-left: 0.5rem; opacity: 0.5;"></i>
+                    <i id="pause-icon" class="fa-solid fa-pause" style="font-size: 0.7rem; margin-left: 0.5rem; opacity: 0.5;"></i>
                 </div>
 
                 <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <button onclick="downloadPDF()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%;" title="Download PDF">
+                        <i class="fa-solid fa-print"></i>
+                    </button>
                     <button id="btn-view" onclick="Game3D.toggleView()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%;">
                         <i id="view-icon" class="fa-solid fa-layer-group"></i>
                     </button>
 
-                    <div class="hud-pill glass-panel" style="padding:0 0.75rem;">
+                    <div id="status-mistakes" class="hud-pill glass-panel" style="padding:0 0.75rem;">
                         <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i>
                         <span id="mistake-count" style="margin-left: 0.5rem">0/3</span>
                     </div>
@@ -458,7 +495,7 @@
             </div>
 
             <div class="bottom-controls pointer-events-auto">
-                <div class="tools-row glass-panel">
+                <div id="game-controls" class="tools-row glass-panel">
                     <button onclick="undo()" class="tool-btn">
                         <i class="fa-solid fa-rotate-left"></i><span data-key="undo">Undo</span>
                     </button>
@@ -479,6 +516,21 @@
                     </button>
                 </div>
 
+                <div id="solver-controls" class="solver-tools hidden">
+                    <button onclick="undo()" class="solver-btn btn-action-secondary btn">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <button onclick="handleErase()" class="solver-btn btn-action-secondary btn" style="color:var(--danger)">
+                        <i class="fa-solid fa-eraser"></i>
+                    </button>
+                    <button onclick="resetBoard()" class="solver-btn btn-action-secondary btn">
+                        <i class="fa-solid fa-trash"></i> <span data-key="clear">Clear</span>
+                    </button>
+                    <button onclick="requestSolverSolution()" class="solver-btn btn-solve-action btn">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-key="solveNow">SOLVE NOW</span>
+                    </button>
+                </div>
+
                 <div id="numpad-container" class="numpad glass-panel">
                     </div>
             </div>
@@ -489,9 +541,19 @@
         <div class="modal-content">
             <h2 id="modal-title" style="font-size:2rem; font-weight:800; margin-bottom:0.5rem; color:white;">LEVEL COMPLETE</h2>
             <p id="modal-desc" style="color:var(--text-secondary); margin-bottom:2rem;">Great job!</p>
+            
             <div class="flex-col" style="display:flex; gap:0.5rem;">
-                <button onclick="startGame(false)" id="modal-btn-replay" class="menu-action-btn btn" style="width:100%; margin:0;" data-key="newGameBtn">New Game</button>
-                <button onclick="showMenu()" class="btn" style="color:var(--text-secondary); padding:1rem; width:100%;" data-key="backToMenu">Back to Menu</button>
+                <div style="display:flex; gap:0.5rem; width:100%;">
+                    <button onclick="closeModalView()" class="btn modal-btn modal-btn-secondary" style="margin:0; flex:1;">
+                        <i class="fa-solid fa-eye"></i> <span data-key="viewBoard">View</span>
+                    </button>
+                    <button onclick="showSolutionEnd()" class="btn modal-btn modal-btn-secondary" style="margin:0; flex:1;">
+                        <i class="fa-solid fa-check-double"></i> <span data-key="solution">Solution</span>
+                    </button>
+                </div>
+                
+                <button onclick="startGame(false)" id="modal-btn-replay" class="btn modal-btn modal-btn-primary" data-key="newGameBtn">New Game</button>
+                <button onclick="showMenu()" class="btn modal-btn modal-btn-outline" data-key="backToMenu">Back to Menu</button>
             </div>
         </div>
     </div>
@@ -540,7 +602,13 @@
                 newGameBtn: "New Game",
                 backToMenu: "Back to Menu",
                 solved: "SOLVED",
-                sandbox: "SANDBOX"
+                sandbox: "SANDBOX",
+                clear: "Clear",
+                solveNow: "SOLVE",
+                unsolvable: "No solution found!",
+                invalidBoard: "Invalid Board! Check for duplicates.",
+                viewBoard: "View",
+                solution: "Solution"
             },
             tr: {
                 subtitle: "Uzamsal Mantık Motoru",
@@ -568,7 +636,13 @@
                 newGameBtn: "Yeni Oyun",
                 backToMenu: "Menüye Dön",
                 solved: "ÇÖZÜLDÜ",
-                sandbox: "KUM HAVUZU"
+                sandbox: "KUM HAVUZU",
+                clear: "Temizle",
+                solveNow: "ÇÖZ",
+                unsolvable: "Çözüm bulunamadı!",
+                invalidBoard: "Geçersiz Tahta! Tekrarları kontrol edin.",
+                viewBoard: "İncele",
+                solution: "Çözüm"
             }
         };
 
@@ -792,7 +866,6 @@
                     // --- 2. Draw Text Only (No Borders) ---
                     const ctx = mesh.userData.ctx;
                     ctx.clearRect(0, 0, 512, 512);
-                    // CLEAN: No strokeRect here anymore
                     
                     ctx.textAlign = 'center'; 
                     ctx.textBaseline = 'middle';
@@ -802,6 +875,7 @@
                         ctx.font = isInit ? "900 350px Arial" : "bold 350px Arial";
                         ctx.fillStyle = isInit ? "#0f172a" : "#4338ca"; 
                         if(isErr) ctx.fillStyle = "#ef4444";
+                        if(isSolverMode && !isInit) ctx.fillStyle = "#22c55e"; // Solved numbers in green
                         ctx.fillText(val, 256, 256);
                     } else {
                         // Notes
@@ -949,6 +1023,8 @@
                     t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296;
                 }
             }
+            function isValid(b,r,c,n){for(let i=0;i<9;i++)if(b[r][i]==n||b[i][c]==n)return false;let sr=Math.floor(r/3)*3,sc=Math.floor(c/3)*3;for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(b[sr+i][sc+j]==n)return false;return true;}
+            
             function solve(b, rng){
                 for(let i=0;i<81;i++){
                     let R=Math.floor(i/9),C=i%9;
@@ -967,24 +1043,31 @@
                 }
                 return true;
             }
-            function isValid(b,r,c,n){for(let i=0;i<9;i++)if(b[r][i]==n||b[i][c]==n)return false;let sr=Math.floor(r/3)*3,sc=Math.floor(c/3)*3;for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(b[sr+i][sc+j]==n)return false;return true;}
-            
+
             self.onmessage=e=>{
-                let b=Array(9).fill().map(()=>Array(9).fill(0));
-                const rng = e.data.seed ? createSeededRandom(e.data.seed) : Math.random;
-                solve(b, rng);
-                let sol=JSON.parse(JSON.stringify(b));
-                let mask=Array(81).fill(0).map((_,i)=>i);
-                for(let i=mask.length-1; i>0; i--) {
-                    const j = Math.floor(rng() * (i + 1));
-                    [mask[i], mask[j]] = [mask[j], mask[i]];
+                if(e.data.cmd === 'solve') {
+                    // Manual Solver Request
+                    let b = e.data.board.map(r => [...r]);
+                    const success = solve(b, null);
+                    self.postMessage({ cmd: 'solved', solution: b, success: success });
+                } else {
+                    // Puzzle Generation
+                    let b=Array(9).fill().map(()=>Array(9).fill(0));
+                    const rng = e.data.seed ? createSeededRandom(e.data.seed) : Math.random;
+                    solve(b, rng);
+                    let sol=JSON.parse(JSON.stringify(b));
+                    let mask=Array(81).fill(0).map((_,i)=>i);
+                    for(let i=mask.length-1; i>0; i--) {
+                        const j = Math.floor(rng() * (i + 1));
+                        [mask[i], mask[j]] = [mask[j], mask[i]];
+                    }
+                    let keep = e.data.diff=='Easy'?40:e.data.diff=='Medium'?32:e.data.diff=='Hard'?26:22;
+                    for(let i=0;i<81-keep;i++){
+                        let p=mask[i];
+                        b[Math.floor(p/9)][p%9]=0;
+                    }
+                    self.postMessage({puzzle:b, solution:sol});
                 }
-                let keep = e.data.diff=='Easy'?40:e.data.diff=='Medium'?32:e.data.diff=='Hard'?26:22;
-                for(let i=0;i<81-keep;i++){
-                    let p=mask[i];
-                    b[Math.floor(p/9)][p%9]=0;
-                }
-                self.postMessage({puzzle:b, solution:sol});
             }
         `], {type:'application/javascript'});
 
@@ -998,9 +1081,66 @@
         let currentCode = null;
         let isPaused = false;
 
+        // --- PDF GENERATION ---
+        async function downloadPDF() {
+             if (!window.jspdf) return alert("PDF Library not loaded");
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(22);
+            doc.text("SUDOKU 3D", 105, 20, { align: "center" });
+            doc.setFontSize(12);
+            doc.setTextColor(100);
+            doc.text(`${isSolverMode ? "Solved Board" : difficulty} | Code: ${currentCode || '-'}`, 105, 30, { align: "center" });
+            
+            const startX = 25, startY = 40, cellSize = 160/9;
+            doc.setLineWidth(0.5);
+            doc.setDrawColor(0);
+            
+            for(let r=0; r<9; r++) {
+                for(let c=0; c<9; c++) {
+                    const x = startX + c*cellSize;
+                    const y = startY + r*cellSize;
+                    doc.setDrawColor(180);
+                    doc.rect(x, y, cellSize, cellSize);
+                    
+                    const val = board[r][c];
+                    if(val !== 0) {
+                        doc.setFont("helvetica", initialBoard[r][c]!==0 ? "bold" : "normal");
+                        doc.setTextColor(initialBoard[r][c]!==0 ? 0 : 80);
+                        if(isSolverMode && initialBoard[r][c]===0) doc.setTextColor(34, 197, 94);
+                        doc.setFontSize(14);
+                        doc.text(String(val), x+cellSize/2, y+cellSize/1.5, {align:"center"});
+                    }
+                }
+            }
+            
+            doc.setLineWidth(1.2);
+            doc.setDrawColor(0);
+            for(let i=0; i<=3; i++) {
+                doc.line(startX + i*3*cellSize, startY, startX + i*3*cellSize, startY + 9*cellSize);
+                doc.line(startX, startY + i*3*cellSize, startX + 9*cellSize, startY + i*3*cellSize);
+            }
+            
+            doc.save("sudoku-3d.pdf");
+        }
+
+        // --- MAIN THREAD VALIDATION & HELPERS ---
+        function isValid(b,r,c,n){for(let i=0;i<9;i++)if(b[r][i]==n||b[i][c]==n)return false;let sr=Math.floor(r/3)*3,sc=Math.floor(c/3)*3;for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(b[sr+i][sc+j]==n)return false;return true;}
+        
+        function getStrictCandidates(r, c) {
+            let cands = [];
+            if(board[r][c] !== 0) return [];
+            for(let n=1;n<=9;n++) {
+                if(isValid(board, r, c, n)) cands.push(n);
+            }
+            return cands;
+        }
+
         // --- PAUSE LOGIC ---
         function togglePause() {
-            if(Game3D.isMenuMode || isGameComplete) return;
+            if(Game3D.isMenuMode || isGameComplete || isSolverMode) return;
 
             isPaused = !isPaused;
             const overlay = document.getElementById('pause-overlay');
@@ -1155,6 +1295,7 @@
                 };
                 w.postMessage({ diff: difficulty, seed: inputCode });
             } else {
+                // SANDBOX MODE
                 isSolverMode = true;
                 board = Array.from({length:9}, () => Array(9).fill(0));
                 initialBoard = JSON.parse(JSON.stringify(board));
@@ -1164,6 +1305,43 @@
                 document.getElementById('game-difficulty-display').innerText = translations[currentLang].sandbox;
             }
             document.getElementById('mistake-count').innerText = "--"; 
+        }
+
+        function requestSolverSolution() {
+            // Validation
+            for(let r=0; r<9; r++) {
+                for(let c=0; c<9; c++) {
+                    const val = board[r][c];
+                    if(val !== 0) {
+                        // Check if valid placement in current board
+                        let temp = board[r][c];
+                        board[r][c] = 0; // Remove to check
+                        let valid = isValid(board, r, c, temp);
+                        board[r][c] = temp; // Put back
+                        if(!valid) {
+                            alert(translations[currentLang].invalidBoard);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            initialBoard = JSON.parse(JSON.stringify(board)); // Lock what we have
+            document.getElementById('loading').classList.remove('hidden');
+            
+            const w = new Worker(URL.createObjectURL(workerBlob));
+            w.onmessage = e => {
+                if(e.data.success) {
+                    board = e.data.solution;
+                    solution = e.data.solution;
+                    renderBoard();
+                } else {
+                    alert(translations[currentLang].unsolvable);
+                }
+                w.terminate();
+                document.getElementById('loading').classList.add('hidden');
+            };
+            w.postMessage({ cmd: 'solve', board: board });
         }
 
         function startGame(useCode) {
@@ -1221,6 +1399,24 @@
             document.getElementById('menu-view').classList.add('hidden');
             document.getElementById('game-view').classList.remove('hidden');
             document.getElementById('modal-overlay').classList.add('hidden');
+            
+            // UI Toggle & Timer Visibility
+            if(isSolverMode) {
+                document.getElementById('game-controls').classList.add('hidden');
+                document.getElementById('solver-controls').classList.remove('hidden');
+                document.getElementById('status-mistakes').classList.add('hidden');
+                // Hide Timer & Pause in Solver Mode
+                document.getElementById('timer-display').classList.add('hidden');
+                document.getElementById('pause-icon').classList.add('hidden');
+            } else {
+                document.getElementById('game-controls').classList.remove('hidden');
+                document.getElementById('solver-controls').classList.add('hidden');
+                document.getElementById('status-mistakes').classList.remove('hidden');
+                // Show Timer & Pause
+                document.getElementById('timer-display').classList.remove('hidden');
+                document.getElementById('pause-icon').classList.remove('hidden');
+            }
+            
             updateTexts();
             
             const codeDisplay = document.getElementById('game-code-display');
@@ -1244,31 +1440,69 @@
             checkSavedGame();
         }
 
+        function closeModalView() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }
+
+        function showSolutionEnd() {
+            if(solution.length > 0) {
+                board = JSON.parse(JSON.stringify(solution));
+                renderBoard();
+                closeModalView();
+            }
+        }
+
         function requestHint() {
             if (isSolverMode || !solution.length || hintsLeft <= 0 || isGameComplete || isPaused) return;
+            
+            // 1. If specific cell selected
+            if(selectedCell) {
+                const [r, c] = selectedCell;
+                if(board[r][c] === 0) {
+                    applyHint(r, c, solution[r][c]);
+                    return;
+                }
+            }
+
+            // 2. Logic: Naked Singles first
+            for(let r=0; r<9; r++) {
+                for(let c=0; c<9; c++) {
+                    if(board[r][c] === 0) {
+                         const cands = getStrictCandidates(r, c);
+                         if(cands.length === 1) {
+                             applyHint(r, c, cands[0]);
+                             return;
+                         }
+                    }
+                }
+            }
+
+            // 3. Fallback: Random Empty
             let empties = [];
             for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(board[r][c] === 0) empties.push([r,c]);
             if(empties.length > 0) {
                 let r, c;
                 if(selectedCell && board[selectedCell[0]][selectedCell[1]] === 0) [r, c] = selectedCell;
                 else [r,c] = empties[Math.floor(Math.random() * empties.length)];
-                
-                const val = solution[r][c];
-                board[r][c] = val;
-                notes[`${r}-${c}`] = [];
-                const sr = Math.floor(r/3)*3, sc = Math.floor(c/3)*3;
-                for(let i=0; i<9; i++) {
-                     if(notes[`${r}-${i}`]) notes[`${r}-${i}`] = notes[`${r}-${i}`].filter(x=>x!==val);
-                     if(notes[`${i}-${c}`]) notes[`${i}-${c}`] = notes[`${i}-${c}`].filter(x=>x!==val);
-                     const br = sr + Math.floor(i/3), bc = sc + (i%3);
-                     if(notes[`${br}-${bc}`]) notes[`${br}-${bc}`] = notes[`${br}-${bc}`].filter(x=>x!==val);
-                }
-                hintsLeft--;
-                document.getElementById('hints-count').innerText = hintsLeft;
-                selectedCell = [r,c];
-                checkWin();
-                renderBoard();
+                applyHint(r, c, solution[r][c]);
             }
+        }
+
+        function applyHint(r, c, val) {
+            board[r][c] = val;
+            notes[`${r}-${c}`] = [];
+            const sr = Math.floor(r/3)*3, sc = Math.floor(c/3)*3;
+            for(let i=0; i<9; i++) {
+                 if(notes[`${r}-${i}`]) notes[`${r}-${i}`] = notes[`${r}-${i}`].filter(x=>x!==val);
+                 if(notes[`${i}-${c}`]) notes[`${i}-${c}`] = notes[`${i}-${c}`].filter(x=>x!==val);
+                 const br = sr + Math.floor(i/3), bc = sc + (i%3);
+                 if(notes[`${br}-${bc}`]) notes[`${br}-${bc}`] = notes[`${br}-${bc}`].filter(x=>x!==val);
+            }
+            hintsLeft--;
+            document.getElementById('hints-count').innerText = hintsLeft;
+            selectedCell = [r,c];
+            checkWin();
+            renderBoard();
         }
 
         function handleCellClick(r, c) {
@@ -1356,8 +1590,9 @@
                 if (notes[k].includes(num)) notes[k] = notes[k].filter(x => x !== num);
                 else notes[k].push(num);
             } else {
-                if (isSolverMode) board[r][c] = num; 
-                else {
+                if (isSolverMode) {
+                    board[r][c] = num; 
+                } else {
                     if (solution.length > 0 && num !== solution[r][c]) {
                         mistakes++;
                         document.getElementById('mistake-count').innerText = `${mistakes}/3`;
@@ -1416,7 +1651,7 @@
             if(!history.length || isGameComplete || isPaused) return;
             const s = history.pop();
             board = s.b; notes = s.n; mistakes = s.m;
-            document.getElementById('mistake-count').innerText = `${mistakes}/3`;
+            document.getElementById('mistake-count').innerText = isSolverMode ? "--" : `${mistakes}/3`;
             renderBoard();
         }
         
@@ -1459,10 +1694,16 @@
             if(isPaused) return;
             if(!confirm("Reset board to start?")) return;
             
-            board = JSON.parse(JSON.stringify(initialBoard));
+            if(isSolverMode) {
+                 board = Array.from({length:9}, () => Array(9).fill(0));
+                 initialBoard = JSON.parse(JSON.stringify(board));
+            } else {
+                 board = JSON.parse(JSON.stringify(initialBoard));
+            }
+            
             notes = {};
             mistakes = 0;
-            document.getElementById('mistake-count').innerText = "0/3";
+            document.getElementById('mistake-count').innerText = isSolverMode ? "--" : "0/3";
             history = [];
             selectedCell = null;
             selectedNumberInput = null;
@@ -1484,7 +1725,7 @@
             }
             let html = '';
             for(let i=1; i<=9; i++) {
-                const done = counts[i] >= 9;
+                const done = !isSolverMode && counts[i] >= 9;
                 const active = selectedNumberInput === i;
                 html += `
                     <div class="num-key ${done?'completed':''} ${active?'selected':''}" 
