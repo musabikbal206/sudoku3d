@@ -8,11 +8,8 @@
     <link rel="icon" type="image/svg+xml" href="icon.svg">
     <meta name="theme-color" content="#0f172a">
     
-    <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- PDF Lib -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
@@ -315,8 +312,7 @@
         .num-key.selected { background: var(--accent-primary); border-color: transparent; box-shadow: 0 0 15px var(--accent-glow); }
         .key-count { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; font-weight: 500; }
 
-        /* Dragging Visuals - High Contrast & Mobile Proxy */
-        /* RESTORED DESKTOP DRAG STYLE */
+        /* Dragging Visuals */
         .dragging { 
             opacity: 1 !important; 
             border: 2px solid #fbbf24 !important;
@@ -332,7 +328,7 @@
             pointer-events: none;
             z-index: 9999;
             width: 48px; height: 48px;
-            background: #fbbf24; /* Yellow High Visibility */
+            background: #fbbf24; 
             color: #000;
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
@@ -357,6 +353,24 @@
         }
         @keyframes popIn { from{transform:scale(0.8);opacity:0} to{transform:scale(1);opacity:1} }
 
+        /* --- PAUSE OVERLAY (NEW) --- */
+        #pause-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50; /* Above game, below modals */
+            background: rgba(15, 23, 42, 0.4); /* Slight dark tint */
+            backdrop-filter: blur(12px); /* THE BLUR EFFECT */
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+        .pulse-text { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%{opacity:0.6} 50%{opacity:1} 100%{opacity:0.6} }
+
         /* --- ANIMATIONS --- */
         .fade-in { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
@@ -364,13 +378,10 @@
 </head>
 <body>
 
-    <!-- 3D Canvas -->
     <div id="canvas-container"></div>
 
-    <!-- UI Overlay -->
     <div id="ui-layer">
         
-        <!-- Main Menu -->
         <div id="menu-view" class="pointer-events-auto fade-in">
             <div class="menu-container glass-panel">
                 <button onclick="toggleLanguage()" class="btn lang-toggle">EN</button>
@@ -390,13 +401,11 @@
                     <i class="fa-solid fa-play"></i>
                 </button>
 
-                <!-- Resume Button -->
                 <button onclick="resumeGame()" id="btn-resume" class="menu-action-btn btn hidden">
                     <span data-key="resume">RESUME</span>
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
 
-                <!-- Updated Menu Layout -->
                 <div class="menu-row" style="margin-top: 1rem;">
                     <button onclick="startDailyChallenge()" class="icon-btn btn">
                         <i class="fa-solid fa-calendar-day"></i> <span data-key="daily">Daily</span>
@@ -420,31 +429,27 @@
             </div>
         </div>
 
-        <!-- Game HUD -->
         <div id="game-view" class="hidden">
-            <!-- Top Bar -->
             <div class="top-bar pointer-events-auto">
-                <div class="flex-center" style="gap: 0.5rem; background:rgba(0,0,0,0.3); padding:4px 12px 4px 4px; border-radius:99px;">
+                <div class="flex-center" style="gap: 0.25rem; background:rgba(0,0,0,0.3); padding:4px 8px 4px 4px; border-radius:99px;">
                     <button onclick="showMenu()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%; flex-shrink:0;">
                         <i class="fa-solid fa-chevron-left"></i>
                     </button>
-                    <span id="game-code-display" style="font-family:monospace; font-size: 0.9rem; font-weight: 800; color: var(--accent-secondary); letter-spacing:1px; white-space:nowrap;"></span>
+                    <span id="game-code-display" style="font-family:monospace; font-size: 0.8rem; font-weight: 800; color: var(--accent-secondary); letter-spacing:0.5px; white-space:nowrap; max-width: 15vw; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle;"></span>
                 </div>
 
-                <!-- Timer -->
-                <div class="hud-pill glass-panel">
+                <div class="hud-pill glass-panel" onclick="togglePause()" style="cursor: pointer;">
                     <span id="game-difficulty-display" class="diff-label" style="color:var(--accent-secondary)">HARD</span>
                     <div class="diff-label" style="width:1px; height:0.8rem; background:rgba(255,255,255,0.2)"></div>
                     <span id="timer-display" class="timer-display">00:00</span>
+                    <i class="fa-solid fa-pause" style="font-size: 0.7rem; margin-left: 0.5rem; opacity: 0.5;"></i>
                 </div>
 
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                    <!-- 2D View Button (Moved here) -->
                     <button id="btn-view" onclick="Game3D.toggleView()" class="btn glass-panel" style="width:2.5rem; height:2.5rem; border-radius:50%;">
                         <i id="view-icon" class="fa-solid fa-layer-group"></i>
                     </button>
 
-                    <!-- Error Count -->
                     <div class="hud-pill glass-panel" style="padding:0 0.75rem;">
                         <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i>
                         <span id="mistake-count" style="margin-left: 0.5rem">0/3</span>
@@ -452,9 +457,7 @@
                 </div>
             </div>
 
-            <!-- Bottom Controls -->
             <div class="bottom-controls pointer-events-auto">
-                <!-- Tools -->
                 <div class="tools-row glass-panel">
                     <button onclick="undo()" class="tool-btn">
                         <i class="fa-solid fa-rotate-left"></i><span data-key="undo">Undo</span>
@@ -476,15 +479,12 @@
                     </button>
                 </div>
 
-                <!-- Numpad -->
                 <div id="numpad-container" class="numpad glass-panel">
-                    <!-- JS Injected -->
-                </div>
+                    </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal -->
     <div id="modal-overlay" class="modal-overlay hidden pointer-events-auto">
         <div class="modal-content">
             <h2 id="modal-title" style="font-size:2rem; font-weight:800; margin-bottom:0.5rem; color:white;">LEVEL COMPLETE</h2>
@@ -496,7 +496,12 @@
         </div>
     </div>
 
-    <!-- Loading -->
+    <div id="pause-overlay" class="hidden" onclick="togglePause()">
+        <i class="fa-solid fa-pause" style="font-size: 4rem; color: white; margin-bottom: 1rem;"></i>
+        <h2 style="font-size: 2rem; font-weight: 900; color: white; letter-spacing: 4px;">PAUSED</h2>
+        <p class="pulse-text" style="color: var(--accent-secondary); margin-top: 1rem; font-weight: 600;">Tap anywhere to resume</p>
+    </div>
+
     <div id="loading" class="fixed inset-0 bg-slate-900 z-50 flex-center flex-col hidden">
         <div style="width:40px; height:40px; border:4px solid rgba(255,255,255,0.1); border-top-color:var(--accent-primary); border-radius:50%; animation:spin 1s linear infinite;"></div>
         <p style="margin-top:1rem; font-weight:bold; letter-spacing:2px; font-size:0.8rem;">GENERATING...</p>
@@ -601,7 +606,7 @@
             raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
             isMenuMode: true, isDragging: false, is2D: false,
             
-            matBase: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0, clearcoat: 1 }),
+            matBase: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.7, metalness: 0, clearcoat: 0 }),
             matSelected: new THREE.MeshPhysicalMaterial({ color: 0x6366f1, emissive: 0x4f46e5, emissiveIntensity: 0.4 }),
             matError: new THREE.MeshPhysicalMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.4 }),
             matRelated: new THREE.MeshPhysicalMaterial({ color: 0xe0e7ff }),
@@ -644,7 +649,6 @@
                 cvs.addEventListener('dragover', e => e.preventDefault());
                 cvs.addEventListener('drop', e => this.onDrop(e));
                 
-                // Add Service Worker logic here if desired
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.register('sw.js')
                         .catch(err => console.log('SW registration failed:', err));
@@ -672,14 +676,16 @@
                     this.camera.lookAt(0, 0, 0);
                 } else {
                     if (this.is2D) {
-                        const zoom2D = isMobile ? 26 : 22; 
-                        // Center by using 0 offset for Desktop
-                        const zOffset = isMobile ? 0 : 0; 
+                        const zoom2D = isMobile ? 28 : 24; 
+                        const zOffset = isMobile ? 1 : 0; 
                         this.camera.position.lerp(new THREE.Vector3(0, zoom2D, zOffset), 0.05);
-                        this.camera.lookAt(0, 0, zOffset); 
+                        this.camera.lookAt(0, 0, zOffset);
                     } else {
-                        this.camera.position.set(0, 16, dist); 
-                        this.camera.lookAt(0, -3, 0); 
+                        const height = 16; 
+                        const dist = isMobile ? 25 : 16; 
+                        const lookAtY = -3;
+                        this.camera.position.set(0, height, dist); 
+                        this.camera.lookAt(0, lookAtY, 0); 
                     }
                 }
             },
@@ -701,6 +707,8 @@
                 const totalSize = (9*size) + (8*gap) + (2*groupGap);
                 const offset = totalSize/2 - size/2;
 
+                const maxAnisotropy = this.renderer.capabilities.getMaxAnisotropy();
+
                 for(let r=0; r<9; r++) {
                     this.tiles[r] = [];
                     for(let c=0; c<9; c++) {
@@ -716,15 +724,29 @@
                         mesh.userData = { r, c, type: 'tile' };
                         
                         const cvs = document.createElement('canvas');
-                        cvs.width=256; cvs.height=256;
+                        cvs.width = 512; 
+                        cvs.height = 512;
+                        
                         const tex = new THREE.CanvasTexture(cvs);
-                        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
-                        sprite.position.y = 0.6;
+                        tex.anisotropy = maxAnisotropy;
+                        tex.minFilter = THREE.LinearFilter;
+                        tex.magFilter = THREE.LinearFilter;
+                        
+                        const spriteMat = new THREE.SpriteMaterial({ 
+                            map: tex,
+                            transparent: true,
+                            depthWrite: false, 
+                            depthTest: true
+                        });
+                        
+                        const sprite = new THREE.Sprite(spriteMat);
+                        sprite.position.y = 0.7; 
                         sprite.scale.set(0.9, 0.9, 1);
+                        
                         mesh.userData.ctx = cvs.getContext('2d');
                         mesh.userData.tex = tex;
+                        
                         mesh.add(sprite);
-
                         this.boardGroup.add(mesh);
                         this.tiles[r][c] = mesh;
                     }
@@ -754,25 +776,29 @@
                     mesh.material.color.set(mat.color);
                     mesh.material.emissive.set(mat.emissive);
                     mesh.material.emissiveIntensity = mat.emissiveIntensity;
+                    
                     mesh.position.y += (lift - mesh.position.y) * 0.2;
 
                     const ctx = mesh.userData.ctx;
-                    ctx.clearRect(0,0,256,256);
-                    ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.clearRect(0, 0, 512, 512);
+                    ctx.textAlign = 'center'; 
+                    ctx.textBaseline = 'middle';
                     
                     if(val !== 0) {
-                        ctx.font = isInit ? "900 160px Inter" : "bold 160px Inter";
-                        ctx.fillStyle = isInit ? "#1e293b" : "#4338ca";
+                        ctx.font = isInit ? "900 350px Arial" : "bold 350px Arial";
+                        ctx.fillStyle = isInit ? "#0f172a" : "#4338ca"; 
                         if(isErr) ctx.fillStyle = "#ef4444";
-                        ctx.fillText(val, 128, 138);
+                        ctx.fillText(val, 256, 256);
                     } else {
                         const n = notes[`${r}-${c}`];
                         if(n && n.length) {
-                            ctx.font = "bold 50px Inter";
-                            ctx.fillStyle = "#475569";
+                            ctx.font = "bold 130px Arial";
+                            ctx.fillStyle = "#000000"; 
+                            const posMap = [128, 256, 384];
                             n.forEach(num => {
-                                const row = Math.floor((num-1)/3), col = (num-1)%3;
-                                ctx.fillText(num, 60 + col*68, 70 + row*60);
+                                const row = Math.floor((num-1)/3);
+                                const col = (num-1)%3;
+                                ctx.fillText(num, posMap[col], posMap[row]);
                             });
                         }
                     }
@@ -859,8 +885,8 @@
                         this.boardGroup.rotation.y += (this.rotY - this.boardGroup.rotation.y) * 0.1;
                         
                         const isMobile = window.innerWidth < 600;
-                        const zoom2D = isMobile ? 26 : 24; 
-                        const zOffset = isMobile ? 0 : 0; 
+                        const zoom2D = isMobile ? 28 : 24; 
+                        const zOffset = isMobile ? 1 : 0; 
                         this.camera.position.lerp(new THREE.Vector3(0, zoom2D, zOffset), 0.05);
                         this.camera.lookAt(0, 0, zOffset); 
                     } else {
@@ -868,10 +894,13 @@
                         this.boardGroup.rotation.x += (this.rotX - this.boardGroup.rotation.x) * 0.1;
                         
                         const isMobile = window.innerWidth < 600;
-                        const dist = isMobile ? 28 : 18; 
-                        const targetPos = new THREE.Vector3(0, 16, dist);
+                        const dist = isMobile ? 25 : 16; 
+                        const height = 16;   
+                        const lookAtY = -3;  
+                        
+                        const targetPos = new THREE.Vector3(0, height, dist);
                         this.camera.position.lerp(targetPos, 0.05);
-                        this.camera.lookAt(0, -3, 0); 
+                        this.camera.lookAt(0, lookAtY, 0); 
                     }
                 }
                 this.renderer.render(this.scene, this.camera);
@@ -950,6 +979,28 @@
         let hintsLeft = 3;
         let isGameComplete = false;
         let currentCode = null;
+        let isPaused = false;
+
+        // --- PAUSE LOGIC ---
+        function togglePause() {
+            if(Game3D.isMenuMode || isGameComplete) return;
+
+            isPaused = !isPaused;
+            const overlay = document.getElementById('pause-overlay');
+
+            if(isPaused) {
+                overlay.classList.remove('hidden');
+                clearInterval(timerInt);
+            } else {
+                overlay.classList.add('hidden');
+                timerInt = setInterval(() => {
+                    timer++;
+                    const m = Math.floor(timer/60).toString().padStart(2,'0');
+                    const s = (timer%60).toString().padStart(2,'0');
+                    document.getElementById('timer-display').innerText = `${m}:${s}`;
+                }, 1000);
+            }
+        }
 
         // --- Custom Touch Drag Logic ---
         let dragProxy = null;
@@ -1003,9 +1054,13 @@
             }
         }
 
+        // --- UPDATED TOUCH END (Double-Tap Fix) ---
         function onTouchEnd(e) {
             const touch = Array.from(e.changedTouches).find(t => t.identifier === activeTouchId);
             if (!touch) return;
+
+            // Prevent double-fire on mobile
+            if (e.cancelable) e.preventDefault();
 
             const el = document.querySelector('.num-key.dragging');
             const num = el ? parseInt(el.innerText) : 0;
@@ -1129,6 +1184,11 @@
             timer = 0; mistakes = 0; notes = {}; history = [];
             selectedCell = null; selectedNumberInput = null;
             hintsLeft = 3; isGameComplete = false;
+            
+            // Reset Pause State
+            isPaused = false;
+            document.getElementById('pause-overlay').classList.add('hidden');
+
             document.getElementById('mistake-count').innerText = "0/3";
             document.getElementById('hints-count').innerText = hintsLeft;
             clearInterval(timerInt);
@@ -1168,7 +1228,7 @@
         }
 
         function requestHint() {
-            if (isSolverMode || !solution.length || hintsLeft <= 0 || isGameComplete) return;
+            if (isSolverMode || !solution.length || hintsLeft <= 0 || isGameComplete || isPaused) return;
             let empties = [];
             for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(board[r][c] === 0) empties.push([r,c]);
             if(empties.length > 0) {
@@ -1195,7 +1255,7 @@
         }
 
         function handleCellClick(r, c) {
-            if(isGameComplete) return;
+            if(isGameComplete || isPaused) return;
             const val = board[r][c];
             if (fastMode) {
                 if (selectedNumberInput !== null) {
@@ -1213,7 +1273,7 @@
         }
 
         function handleNumpadClick(num) {
-            if(isGameComplete) return;
+            if(isGameComplete || isPaused) return;
             if (fastMode) {
                 selectedNumberInput = (selectedNumberInput === num) ? null : num;
             } else {
@@ -1300,7 +1360,7 @@
         }
 
         function undo() {
-            if(!history.length || isGameComplete) return;
+            if(!history.length || isGameComplete || isPaused) return;
             const s = history.pop();
             board = s.b; notes = s.n; mistakes = s.m;
             document.getElementById('mistake-count').innerText = `${mistakes}/3`;
@@ -1308,7 +1368,7 @@
         }
         
         function handleErase() {
-            if(!selectedCell || isGameComplete) return;
+            if(!selectedCell || isGameComplete || isPaused) return;
             const [r,c] = selectedCell;
             if(initialBoard[r][c]!==0 && !isSolverMode) return;
             board[r][c] = 0; notes[`${r}-${c}`] = [];
@@ -1316,11 +1376,13 @@
         }
 
         function toggleNotes() {
+            if(isPaused) return;
             notesMode = !notesMode;
             document.getElementById('btn-notes').classList.toggle('active');
         }
 
         function toggleFastMode() {
+            if(isPaused) return;
             fastMode = !fastMode;
             const btn = document.getElementById('btn-mode');
             const icon = document.getElementById('mode-icon');
@@ -1341,17 +1403,14 @@
         }
 
         function resetBoard() {
+            if(isPaused) return;
             if(!confirm("Reset board to start?")) return;
             
-            // Revert to initial state
             board = JSON.parse(JSON.stringify(initialBoard));
             notes = {};
             mistakes = 0;
-            // Keep timer running but reset mistake count UI
             document.getElementById('mistake-count').innerText = "0/3";
-            // Clear history so you can't undo the reset
             history = [];
-            
             selectedCell = null;
             selectedNumberInput = null;
             renderBoard();
@@ -1360,7 +1419,7 @@
         function renderBoard() {
             Game3D.updateVisuals();
             renderNumpad();
-            initTouchDrag(); // Re-bind touch events for mobile
+            initTouchDrag(); 
         }
 
         function renderNumpad() {
